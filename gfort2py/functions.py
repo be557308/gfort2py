@@ -71,7 +71,6 @@ class fFunc(fVar):
         if len(self.proc['arg_nums'])>0:
             for i in self.arg:
                 self._arg_vars.append(self._init_var(i))
-                self._arg_vars[-1]._func_arg=True
                 
                 if 'pointer' in i['var']:
                     pointer=True
@@ -83,7 +82,6 @@ class fFunc(fVar):
                     tmp.append(y)
                     
             self._call.argtypes = self._arg_ctypes+tmp
-            
 
     def _init_var(self, obj):
         array = None
@@ -165,10 +163,7 @@ class fFunc(fVar):
             # Copy arguments into a dict for returning
             for i,j in zip(self._arg_vars,args_out):
                 if 'out' in i.var['intent'] or i.var['intent']=='na':
-                    if hasattr(j,'contents'):
-                        r[i.name]=i.ctype_to_py_f(j.contents)
-                    else:
-                        r[i.name]=i.ctype_to_py_f(j)
+                    r[i.name]=i.ctype_to_py_f(j)
 
         return r
     

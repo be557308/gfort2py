@@ -173,7 +173,7 @@ class fFort(object):
                     completed[idx]=True
         
                    
-        # Anything left not completed is likely to be a recurisive type
+        # Anything left not completed is likely to be a recursive type
         for i,status in zip(all_dt_defs,completed):
             if not status:
                 _dictAllDtDescs[i['name']]=getEmptyDT(i['name'])

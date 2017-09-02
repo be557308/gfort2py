@@ -184,7 +184,10 @@ class fDerivedType(fVar):
         Pass in a ctype value returns the python representation of it,
         as returned by a function (may be a pointer)
         """
-        return self.ctype_to_py(value)
+        if hasattr(value,'contents'):
+            return self.ctype_to_py(value.contents)
+        else:
+            return self.ctype_to_py(value)
 
     def ctype_def(self):
         """
