@@ -82,7 +82,7 @@ class npFArray(np.ndarray):
         return ftype
 
     @property
-    def _as_parameter(self):
+    def _as_parameter_(self):
         if self._defined:
             return self.ctypes.data
         else:
