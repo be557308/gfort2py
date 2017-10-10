@@ -40,6 +40,17 @@ module tester
       complex(dp)       :: a_cmplx_dp
       complex(qp)       :: a_cmplx_qp
       
+      ! Variables
+      integer           :: aa_int=2
+      integer(lp)       :: aa_int_lp=3_lp
+      real              :: aa_real=50.0
+      real(dp)          :: aa_real_dp=50.0_dp
+      real(qp)          :: aa_real_qp=50.0_qp
+      character(len=10) :: aa_str="abcdefghij"
+      complex           :: aa_cmplx=(1.0,1.0)
+      complex(dp)       :: aa_cmplx_dp=(1.0_dp,1.0_dp)
+      complex(qp)       :: aa_cmplx_qp=(1.0_qp,1.0_qp)
+      
       integer,pointer            :: a_int_point => null()
       integer(lp),pointer        :: a_int_lp_point => null()
       real,pointer               :: a_real_point => null()

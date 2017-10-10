@@ -44,7 +44,7 @@ class npFArray(np.ndarray):
         self._defined = getattr(obj,'_defined', False)
 
     def _make_ctype_struct(self):
-        desc = listFAllocArrays[self.ndim]
+        desc = listFAllocArrays[self.ndim-1]
         ctype = desc()
         
         ctype.base_addr = self.ctypes.data
