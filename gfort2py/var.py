@@ -9,61 +9,10 @@ import numpy as np
 from errors import *
 
 
-_lib = None
-
-def loadLib(filename):
-    global _lib
-    _lib = ctypes.CDLL(filename)
-
-
-def _dll(var,name):
-    if name is None:
-        if var.name is not None:
-            name=var.name
-        else:
-            raise ValueError("Must set name")
-            
-    var.name = name
-
-    if var._ref is None:
-        try:
-            var._ref = var._ctype.in_dll(_lib,name)
-        except ValueError:
-            raise NotInLib
-    
-    return var
-
-def _in_dll(var,name=None):
-    
-    var = _dll(var,name)
-    
-    x = var._ref.value
-    
-    if x is None:  
-        return None
-    else:
-        return var.__class__(value=x,**var.__dict__)
-    
-def _set_dll(var,value,name=None):
-    
-    var = _dll(var,name)
-    
-    var._ref.value = value
-    
-    return var.__class__(value=value,**var.__dict__)
-
-
-def _null_ptr(var):
-    return ctypes.POINTER(var._ctype)()
-        
-
 class fInt(int):
-    
-    #_type_ = "i"
-    
-    #__basicsize = ctypes.c_int.__basicsize__
-    
+
     def __new__(cls,value=0,pointer=True,kind=4,param=False,name=None,
+                base_addr=-1,
                 *args,**kwargs):
         obj = super(fInt, cls).__new__(cls, value)
         obj.pointer = pointer
@@ -78,10 +27,24 @@ class fInt(int):
         obj.name = name
 
         obj._ref = None
-        if name is not None:
+        if obj.name is not None:
             obj._ref = obj._ctype.in_dll(_lib,obj.name)
         
+        obj._base_addr = base_addr
+        
         return obj
+        
+    def set_name(self,name):
+        self.name = name
+        self._up_ref()
+        self._base_addr = -1
+
+    def set_addr(self,addr):
+        self._base_addr = addr
+        self._ref = None
+        
+    def _up_ref(self):
+        self._ref = self._ctype.in_dll(_lib,self.name)
         
     @property
     def _as_parameter_(self):
@@ -91,12 +54,59 @@ class fInt(int):
     def from_param(self):
         return self._ctype
         
-    def in_dll(self,name=None):
-        return _in_dll(self,name)
+    def __int__(self,new=True):
+        if self._base_addr > 0:
+            x = self._ctype.from_address(self._base_addr).value
+        elif self._ref is not None:
+            x = self._ref.value
+        else:
+            x = super(fInt,self).__int__()
 
-    def set_dll(self,value,name=None):
-        return _set_dll(self,value,name)
+        if new:
+            return self.__new__(self.__class__,x,**self.__dict__)
+        else:
+            return int(x)
         
+        
+    def _set(self,value):
+        if self._base_addr > 0:
+            x = self._ctype.from_address(self._base_addr)
+        elif self._ref is not None:
+            x = self._ref
+        else:
+            raise ValueError("Value not mapped to fortran")        
+        
+        x.value = value
+        
+    def __add__(self,x):
+        y = self.__int__(new=False)
+        y = y + x
+        return y
+        
+    def __sub__(self,x):
+        y = self.__int__(new=False)
+        y = y - x
+        return y
+    
+    def __mul__(self,x):
+        y = self.__int__(new=False)
+        y = y * x
+        return y
+        
+    def __div__(self,x):
+        y = self.__int__(new=False)
+        y = y / x
+        return y
+        
+    def __str__(self):
+        y = self.__int__(new=False)
+        return str(y)
+        
+    def __repr__(self):
+        y = self.__int__(new=False)
+        return repr(y)
+        
+
 
 class _fReal(float):
     def __new__(cls,value=0.0,pointer=False,kind=4,param=False,*args,**kwargs):
@@ -331,7 +341,7 @@ class fChar(bytes):
         
     @property
     def _extra_val(self):
-        return len(self)
+        return len(self.__str__())
 
 
     def _convert(self,value):
