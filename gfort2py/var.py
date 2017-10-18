@@ -22,7 +22,9 @@ class fVar(object):
         self._kind = kind
         self._name = name
         self._base_addr = base_addr
+        self._param = param
         
+        self._cname = cname
         self._ctype = getattr(ctypes,cname)
         self._ctype_p = ctypes.POINTER(self._ctype)
         
@@ -37,12 +39,20 @@ class fVar(object):
     def set_name(self,name):
         self._name = str(name)
         self._mod_name = u.module + self.name
-        self._up_ref()
-        self._base_addr = -1
+        if not self._param:
+            self._up_ref()
+            self._base_addr = ctypes.addressof(self._ref)
+        else:
+            self._ref = None
+            self._base_addr = -1
 
     def set_addr(self,addr):
-        self._base_addr = addr
-        self._ref = None
+        if not self._param:
+            self._base_addr = addr
+            self._ref = None
+        else:
+            self._ref = None
+            self._base_addr = -1
         
     def _up_ref(self):
         try:
@@ -71,15 +81,31 @@ class fVar(object):
         return self._value
         
     def _set(self,value):
-        if self._base_addr > 0:
-            x = self._ctype.from_address(self._base_addr)
-        elif self._ref is not None:
-            x = self._ref
+        if not self._param:
+            if self._base_addr > 0:
+                x = self._ctype.from_address(self._base_addr)
+            elif self._ref is not None:
+                x = self._ref
+            else:
+                raise ValueError("Value not mapped to fortran")        
+            
+            x.value = self._pytype(x)
+            self._value = x.value
         else:
-            raise ValueError("Value not mapped to fortran")        
+            raise AttributeError("Can not alter a parameter")
+
         
-        x.value = self._pytype(x)
-        self._value = x.value
+    def _set_from_buffer(self):
+        for i in range(self._length):
+            offset = self.base_addr + i * ctypes.sizeof(self._ctype)
+            self._ctype.from_address(offset).value = self._value[i]
+        
+    def _get_from_buffer(self):
+        self._value = []
+        for i in range(self._length):
+            offset = self.base_addr + i * ctypes.sizeof(self._ctype)
+            self._value[i] = self._ctype.from_address(offset).value
+        
         
     # _get() should allways return a python type so we overload and let
     # the python types __X__ functions act    
@@ -363,7 +389,9 @@ class fVar(object):
         y = self._get()
         return y.__round__() 
     
-
+    def __len__(self):
+        y = self._get()
+        return y.__len__() 
 
 
 class fInt(fVar):
@@ -371,227 +399,200 @@ class fInt(fVar):
     def __init__(self,value=0,pointer=True,kind=4,param=False,name=None,
                 base_addr=-1,*args,**kwargs):
                     
-        self._cname = 'c_int'+str(kind*8)
-        self._pytpe = int
+        cname = 'c_int'+str(kind*8)
+        pytpe = int
         super(fInt, self).__init__(value=value,pointer=pointer,kind=kind,
                                     param=param,name=name,base_addr=base_addr,
-                                    cname=self.cname,pytyp=self.pytype,
+                                    cname=cname,pytype=pytype,
                                     *args,**kwargs)
     
+        
+class fSingle(fVar):
+   def __init__(self,value=0.0,pointer=True,param=False,name=None,
+                base_addr=-1,*args,**kwargs):
 
+        cname = 'c_float'
+        pytpe = np.longdouble
+        super(fQuad, self).__init__(value=value,pointer=pointer,kind=4,
+                                    param=param,name=name,base_addr=base_addr,
+                                    cname=cname,pytype=pytype,
+                                    *args,**kwargs)
         
+class fDouble(fVar):
+   def __init__(self,value=0.0,pointer=True,param=False,name=None,
+                base_addr=-1,*args,**kwargs):
 
+        cname = 'c_double'
+        pytpe = np.longdouble
+        super(fQuad, self).__init__(value=value,pointer=pointer,kind=8,
+                                    param=param,name=name,base_addr=base_addr,
+                                    cname=cname,pytype=pytype,
+                                    *args,**kwargs)
+        
+class fQuad(fVar):
+   def __init__(self,value=np.longdouble(0.0),pointer=True,param=False,name=None,
+                base_addr=-1,*args,**kwargs):
 
-class _fReal(fVar):
-    def __new__(cls,value=0.0,pointer=False,kind=4,param=False,*args,**kwargs):
-        obj = super(_fReal, cls).__new__(cls, value)
-        obj.pointer = pointer
-        obj.kind = kind
-        obj.param = param
-        # True if we need extra fields in functions calls
-        obj._extra = False
-        
-        if kind==4:
-            obj._ctype = ctypes.c_float
-        elif kind==8:
-            obj._ctype = ctypes.c_double
-        else:
-            raise ValueError("Kind must be 4 or 8")
-        
-        obj._ctype_p = ctypes.POINTER(obj._ctype)
-            
-        obj.name = name
-
-        obj._ref = None
-        if name is not None:
-            obj._ref = obj._ctype.in_dll(_lib,obj.name)
-        
-        return obj
-    
-        
-class fSingle(_fReal):
-    def __new__(cls,value=0.0,pointer=False,param=False,*args,**kwargs):
-        obj = super(fSingle, cls).__new__(cls, value,pointer=pointer,kind=4)
-        return obj
-        
-class fDouble(_fReal):
-    def __new__(cls,value=0.0,pointer=False,param=False,*args,**kwargs):
-        obj = super(fDouble, cls).__new__(cls, value,pointer=pointer,kind=8)
-        return obj
-        
-        
-class fQuad(np.longdouble):
-    def __new__(cls,value=0.0,pointer=False,param=False,*args,**kwargs):
-        obj = super(fQuad, cls).__new__(cls, value)
-        obj.pointer = pointer
-        obj.param = param
-        # True if we need extra fields in functions calls
-        obj._extra = False
-        
-        obj._ctype = ctypes.longdouble()
-        
-        obj._ctype_p = ctypes.POINTER(obj._ctype)
-            
-        obj.name = name
-
-        obj._ref = None
-        if name is not None:
-            obj._ref = obj._ctype.in_dll(_lib,obj.name)
-        
-        return obj
+        cname = 'c_longdouble'
+        pytpe = np.longdouble
+        super(fQuad, self).__init__(value=value,pointer=pointer,kind=16,
+                                    param=param,name=name,base_addr=base_addr,
+                                    cname=cname,pytype=pytype,
+                                    *args,**kwargs)
 
         
 class fLogical(fVar):
-    pass
-        
-        
-class _fRealCmplx(fVar):
-    def __new__(cls,value=complex(0.0),pointer=False,kind=4,param=False,*args,**kwargs):
-        obj = super(fReal, cls).__new__(cls, value)
-        obj.pointer = pointer
-        obj.kind = kind
-        obj.param = param
-        # True if we need extra fields in functions calls
-        obj._extra = False
-        
-        if kind==4:
-            obj._ctype = ctypes.c_float*2
-        elif kind==8:
-            obj._ctype = ctypes.c_double*2
-        else:
-            raise ValueError("Kind must be 4 or 8")
-        
-        obj._ctype_p = ctypes.POINTER(obj._ctype)
-            
-        obj.name = name
+   def __init__(self,value=True,pointer=True,param=False,name=None,
+                base_addr=-1,*args,**kwargs):
 
-        obj._ref = None
-        if name is not None:
-            obj._ref = obj._ctype.in_dll(_lib,obj.name)
+        cname = 'c_bool'
+        pytpe = bool
+        super(fLogical, self).__init__(value=value,pointer=pointer,kind=kind,
+                                    param=param,name=name,base_addr=base_addr,
+                                    cname=cname,pytype=pytype,
+                                    *args,**kwargs)
+
         
-        return obj
+    
+        
+        
+class fSingleCmplx(fVar):
+   def __init__(self,value=cmplx(0.0),pointer=True,param=False,name=None,
+                base_addr=-1,*args,**kwargs):
+
+        cname = 'c_float'*2
+        pytpe = complex
+        super(fSingleCmplx, self).__init__(value=value,pointer=pointer,kind=4,
+                                    param=param,name=name,base_addr=base_addr,
+                                    cname=cname,pytype=pytype,
+                                    *args,**kwargs)
+        
+        self._length = 2
         
     @property
     def _as_parameter_(self):
-        return self._ctype_p(self._ctype(self.__float__()))
-
+        x = self._get()
+        y = ctypes._ctype(x.real,x.imag)
+        return self._ctype_p(y)
+        
     @property
     def from_param(self):
         return self._ctype
-        
-    def in_dll(self,name=None):
-        return _in_dll(self,name)
 
-    def set_dll(self,value,name=None):
-        return _set_dll(self,value,name)
+    def _get(self,new=True):
+        if self._base_addr > 0:
+            x = self._get_from_buffer(self._base_addr)
+        else:
+            x = [self._value.real,self._value.imag]
+            
+        self._value = self._pytype(x[0],x[1])
+
+        return self._value
         
+    def _set(self,value):
+        if self._base_addr < 0:
+            raise ValueError("Value not mapped to fortran")        
         
-class fSingleCmplx(_fRealCmplx):
-    def __new__(cls,value=complex(0.0),pointer=False,param=False,*args,**kwargs):
-        obj = super(fSingleCmplx, cls).__new__(cls, value,pointer=pointer,kind=4)
-        return obj
+        self._value = self._pytype(value)
         
-class fDoubleCmplx(_fRealCmplx):
-    def __new__(cls,value=complex(0.0),pointer=False,param=False,*args,**kwargs):
-        obj = super(fDoubleCmplx, cls).__new__(cls, value,pointer=pointer,kind=8)
-        return obj
+        self._set_from_buffer()
+        
+class fDoubleCmplx(fVar):
+   def __init__(self,value=cmplx(0.0),pointer=True,param=False,name=None,
+                base_addr=-1,*args,**kwargs):
+
+        cname = 'c_double'*2
+        pytpe = complex
+        super(fDoubleCmplx, self).__init__(value=value,pointer=pointer,kind=8,
+                                    param=param,name=name,base_addr=base_addr,
+                                    cname=cname,pytype=pytype,
+                                    *args,**kwargs)
+        
+        self._length = 2
+        
+    @property
+    def _as_parameter_(self):
+        x = self._get()
+        y = ctypes._ctype(x.real,x.imag)
+        return self._ctype_p(y)
+        
+    @property
+    def from_param(self):
+        return self._ctype
+
+    def _get(self,new=True):
+        if self._base_addr > 0:
+            x = self._get_from_buffer(self._base_addr)
+        else:
+            x = [self._value.real,self._value.imag]
+            
+        self._value = self._pytype(x[0],x[1])
+
+        return self._value
+        
+    def _set(self,value):
+        if not self._param:
+            if self._base_addr < 0:
+                raise ValueError("Value not mapped to fortran")   
+        else:
+            raise AttributeError("Can not alter a parameter")
+        
+        self._value = self._pytype(value)
+        
+        self._set_from_buffer()
    
 
 class fChar(fVar):
-    def __new__(cls,value=b'',pointer=False,param=False,length=-1,name=None,
-                *args,**kwargs):
-        obj = super(fChar, cls).__new__(cls, value)
-        obj.pointer = pointer
-        obj.param = param
-        # True if we need extra fields in functions calls
-        obj._extra = True
-                
-        if type(value) == 'str':
-            value = value.encode()
-        
-        obj.length = length
-        if obj.length > 0:
-            if len(value) > obj.length:
-                raise ValueError("String is too long")
-            
-        else:
-            obj.length = len(value)
-            
-        obj._ctype = ctypes.c_char
-        
-        obj._ctype_p = ctypes.c_char_p
-        
-        obj._ref = None
-        obj.name = name
-        if obj.name is not None:
-            obj._ref = obj._ctype.in_dll(_lib,obj.name)
-        
-        
-        return obj
-
-    def in_dll(self,name=None):
-
-        addr = ctypes.addressof(self._ref)
-        s = ctypes.string_at(addr,self.length)
-        return fChar(value=s,**self.__dict__)
-
-    def set_dll(self,value,name=None):
-
-        if type(value) == 'str':
-            value = value.encode()
-
-        addr = ctypes.addressof(self._ref)
-        
-        for j in range(min(len(value), self.length)):
-            offset = addr + j * ctypes.sizeof(self._ctype)
-            self._ctype.from_address(offset).value = value[j]
-        
-        
-        return fChar(value=value,**self.__dict__)
-
-
+    def __init_(self,value=b'',pointer=True,param=False,name=None,length=-1
+                base_addr=-1,*args,**kwargs):
+        cname = 'c_char_p'
+        pytpe = bytes
+        super(fChar, self).__init__(value=value,pointer=pointer,kind=kind,
+                                    param=param,name=name,base_addr=base_addr,
+                                    cname=cname,pytype=pytype,
+                                    *args,**kwargs)
+                                    
+        self._length = length
 
     @property
+    def _as_parameter_(self):
+        return self._ctype_p(self._ctype(self._get()))
+        
+    @property
+    def from_param(self):
+        return self._ctype
+
+    def _get(self,new=True):
+        if self._base_addr > 0:
+            x = ctypes.string_at(self._base_addr,self.length)
+        else:
+            x = self._value
+            
+        try:
+            self._value = self._pytype(x)
+        except TypeError:
+            self._value = self._pytype(x.encode())
+
+        return self._value
+        
+    def _set(self,value):
+        if not self._param:
+            if self._base_addr < 0:
+                raise ValueError("Value not mapped to fortran")   
+        else:
+            raise AttributeError("Can not alter a parameter")        
+        
+        try:
+            self._value = self._pytype(value)
+        except TypeError:
+            self._value = self._pytype(value.encode())
+        
+        self._length = len(self._value)
+        
+        self._set_from_buffer()
+
     def _extra_ctype(self):
         return ctypes.c_int
         
-    @property
-    def _extra_val(self):
-        return len(self.__str__())
-
-
-    def _convert(self,value):
-        #handle array of bytes back to a string?
-        pass
-
-
-    #maybe use ctypes.string_at(addr,size)?
-    #def _get_var_by_iter(self, value, size=-1):
-        #""" Gets a variable where we have to iterate to get multiple elements"""
-        #base_address = ctypes.addressof(value)
-        #return self._get_var_from_address(base_address, size=size)
-
-    #def _get_var_from_address(self, ctype_address, size=-1):
-        #out = []
-        #i = 0
-        #sof = ctypes.sizeof(self._ctype)
-        #while True:
-            #if i == size:
-                #break
-            #x = self._ctype.from_address(ctype_address + i * sof)
-            #if x.value == b'\x00':
-                #break
-            #else:
-                #out.append(x.value)
-            #i = i + 1
-        #return out
-
-    #def _set_var_from_iter(self, res, value, size=99999):
-        #base_address = ctypes.addressof(res)
-        #self._set_var_from_address(base_address, value, size)
-
-    #def _set_var_from_address(self, ctype_address, value, size=99999):
-        #for j in range(min(len(value), size)):
-            #offset = ctype_address + j * ctypes.sizeof(self._ctype)
-            #self._ctype.from_address(offset).value = value[j]
-
+    def _extra_val(self,x):
+        return len(x)
