@@ -7,35 +7,36 @@ except ImportError:
 import ctypes
 import numpy as np
 from errors import *
+import utils as u
 
 
-class fInt(int):
-
-    def __new__(cls,value=0,pointer=True,kind=4,param=False,name=None,
-                base_addr=-1,
-                *args,**kwargs):
-        obj = super(fInt, cls).__new__(cls, value)
-        obj.pointer = pointer
-        obj.kind = kind
-        obj.param = param
-        # True if we need extra fields in functions calls
-        obj._extra = False
-        
-        obj._ctype = getattr(ctypes,'c_int'+str(kind*8))
-        obj._ctype_p = ctypes.POINTER(obj._ctype)
+class fVar(object):
+    def __init__(self,value=None,pointer=True,kind=-1,name=None,
+                    base_addr=-1,cname=None,pytype=None,*args,**kwargs):
+        if value is None:
+            raise ValueError("Must set a value")
             
-        obj.name = name
+        self._value = value
 
-        obj._ref = None
-        if obj.name is not None:
-            obj._ref = obj._ctype.in_dll(_lib,obj.name)
+        self._pointer = pointer
+        self._kind = kind
+        self._name = name
+        self._base_addr = base_addr
         
-        obj._base_addr = base_addr
+        self._ctype = getattr(ctypes,cname)
+        self._ctype_p = ctypes.POINTER(self._ctype)
         
-        return obj
+        self._ref = None
+        if self._name is not None:
+            self._mod_name = u.module + self.name
+            self._up_ref()
+            
+        self._pytype = pytype
+        
         
     def set_name(self,name):
-        self.name = name
+        self._name = str(name)
+        self._mod_name = u.module + self.name
         self._up_ref()
         self._base_addr = -1
 
@@ -44,29 +45,30 @@ class fInt(int):
         self._ref = None
         
     def _up_ref(self):
-        self._ref = self._ctype.in_dll(_lib,self.name)
+        try:
+            self._ref = self._ctype.in_dll(_lib,self._mod_name)
+        except ValueError:
+            raise NotInLib 
         
     @property
     def _as_parameter_(self):
-        return self._ctype_p(self._ctype(self.__int__()))
-
+        return self._ctype_p(self._ctype(self._get()))
+        
     @property
     def from_param(self):
         return self._ctype
-        
-    def __int__(self,new=True):
+
+    def _get(self,new=True):
         if self._base_addr > 0:
             x = self._ctype.from_address(self._base_addr).value
         elif self._ref is not None:
             x = self._ref.value
         else:
-            x = super(fInt,self).__int__()
+            x = self._value
+            
+        self._value = self._pytype(x)
 
-        if new:
-            return self.__new__(self.__class__,x,**self.__dict__)
-        else:
-            return int(x)
-        
+        return self._value
         
     def _set(self,value):
         if self._base_addr > 0:
@@ -76,39 +78,311 @@ class fInt(int):
         else:
             raise ValueError("Value not mapped to fortran")        
         
-        x.value = value
+        x.value = self._pytype(x)
+        self._value = x.value
         
+    # _get() should allways return a python type so we overload and let
+    # the python types __X__ functions act    
+    
     def __add__(self,x):
-        y = self.__int__(new=False)
-        y = y + x
+        y = self._get()
+        y = y.__add__(x)
         return y
         
     def __sub__(self,x):
-        y = self.__int__(new=False)
-        y = y - x
+        y = self._get()
+        y = y.__sub__(x)
         return y
     
     def __mul__(self,x):
-        y = self.__int__(new=False)
-        y = y * x
+        y = self._get()
+        y = y.__mul__(x)
         return y
         
-    def __div__(self,x):
-        y = self.__int__(new=False)
-        y = y / x
+    def __divmod__(self,x):
+        y = self._get()
+        y = y.__divmod__(x)
         return y
+        
+    def __truediv__(self,x):
+        y = self._get()
+        y = y.__truediv__(x)
+        return y
+        
+    def __floordiv__(self,x):
+        y = self._get()
+        y = y.__floordiv__(x)
+        return y
+        
+    def __matmul_(self,x):
+        y = self._get()
+        y = y.__matmul__(x)
+        return y 
+
+    def __pow__(self,x,modulo=None)
+        y = self._get()
+        y = y.__pow__(x,modulo)
+        return y 
+        
+    def __lshift__(self,x)
+        y = self._get()
+        y = y.__lshift__(x)
+        return y 
+        
+    def __rshift__(self,x)
+        y = self._get()
+        y = y.__rshift__(x)
+        return y 
+        
+    def __and__(self,x)
+        y = self._get()
+        y = y.__and__(x)
+        return y 
+        
+    def __xor__(self,x)
+        y = self._get()
+        y = y.__xor__(x)
+        return y         
+
+    def __or__(self,x)
+        y = self._get()
+        y = y.__or__(x)
+        return y 
+        
+   
+    def __radd__(self,x):
+        y = self._get()
+        y = y.__radd__(x)
+        return y
+        
+    def __rsub__(self,x):
+        y = self._get()
+        y = y.__rsub__(x)
+        return y
+    
+    def __rmul__(self,x):
+        y = self._get()
+        y = y.__rmul__(x)
+        return y
+        
+    def __rdivmod__(self,x):
+        y = self._get()
+        y = y.__rdivmod__(x)
+        return y
+        
+    def __rtruediv__(self,x):
+        y = self._get()
+        y = y.__rtruediv__(x)
+        return y
+        
+    def __rfloordiv__(self,x):
+        y = self._get()
+        y = y.__rfloordiv__(x)
+        return y
+        
+    def __rmatmul_(self,x):
+        y = self._get()
+        y = y.__rmatmul__(x)
+        return y 
+
+    def __rpow__(self,x)
+        y = self._get()
+        y = y.__rpow__(x)
+        return y 
+        
+    def __rlshift__(self,x)
+        y = self._get()
+        y = y.__rlshift__(x)
+        return y 
+        
+    def __rrshift__(self,x)
+        y = self._get()
+        y = y.__rrshift__(x)
+        return y 
+        
+    def __rand__(self,x)
+        y = self._get()
+        y = y.__rand__(x)
+        return y 
+        
+    def __rxor__(self,x)
+        y = self._get()
+        y = y.__rxor__(x)
+        return y         
+
+    def __ror__(self,x)
+        y = self._get()
+        y = y.__ror__(x)
+        return y 
+   
+    def __iadd__(self,x):
+        y = self._get()
+        y = y.__add__(x)
+        self._set(y)
+        return y
+        
+    def __isub__(self,x):
+        y = self._get()
+        y = y.__sub__(x)
+        self._set(y)
+        return y
+    
+    def __imul__(self,x):
+        y = self._get()
+        y = y.__mul__(x)
+        self._set(y)
+        return y
+        
+    def __itruediv__(self,x):
+        y = self._get()
+        y = y.__truediv__(x)
+        self._set(y)
+        return y
+        
+    def __ifloordiv__(self,x):
+        y = self._get()
+        y = y.__floordiv__(x)
+        self._set(y)
+        return y
+        
+    def __imatmul_(self,x):
+        y = self._get()
+        y = y.__matmul__(x)
+        self._set(y)
+        return y 
+
+    def __ipow__(self,x,module=None)
+        y = self._get()
+        y = y.__pow__(x,modulo)
+        self._set(y)
+        return y 
+        
+    def __ilshift__(self,x)
+        y = self._get()
+        y = y.__lshift__(x)
+        self._set(y)
+        return y 
+        
+    def __irshift__(self,x)
+        y = self._get()
+        y = y.__rshift__(x)
+        self._set(y)
+        return y 
+        
+    def __iand__(self,x)
+        y = self._get()
+        y = y.__and__(x)
+        self._set(y)
+        return y 
+        
+    def __ixor__(self,x)
+        y = self._get()
+        y = y.__xor__(x)
+        self._set(y)
+        return y         
+
+    def __ior__(self,x)
+        y = self._get()
+        y = y.__or__(x)
+        self._set(y)
+        return y 
         
     def __str__(self):
-        y = self.__int__(new=False)
-        return str(y)
+        y = self._get()
+        return y.__str__()
         
     def __repr__(self):
-        y = self.__int__(new=False)
-        return repr(y)
+        y = self._get()
+        return y.__repr__()
+   
+    def __bytes__(self):
+        y = self._get()
+        return y.__bytes__()
+ 
+    def __format__(self):
+        y = self._get()
+        return y.__format__()
+        
+    def __lt__(self,x):
+        y = self._get()
+        return y.__lt__(x)
+        
+    def __le__(self,x):
+        y = self._get()
+        return y.__le__(x)
+        
+    def __gt__(self,x):
+        y = self._get()
+        return y.__gt__(x)
+        
+    def __ge__(self,x):
+        y = self._get()
+        return y.__ge__(x)
+        
+    def __eq__(self,x):
+        y = self._get()
+        return y.__eq__(x)
+        
+    def __ne__(self,x):
+        y = self._get()
+        return y.__ne__(x)
+
+    def __bool__(self):
+        y = self._get()
+        return y.__bool__() 
+
+    def __neg__(self):
+        y = self._get()
+        return y.__neg__() 
+
+    def __pos__(self):
+        y = self._get()
+        return y.__pos__() 
+        
+    def __abs__(self):
+        y = self._get()
+        return y.__abs__() 
+        
+    def __invert__(self):
+        y = self._get()
+        return y.__invert__() 
+        
+    def __complex__(self):
+        y = self._get()
+        return y.__complex__() 
+        
+    def __int__(self):
+        y = self._get()
+        return y.__int__() 
+        
+    def __float__(self):
+        y = self._get()
+        return y.__float__() 
+        
+    def __round__(self):
+        y = self._get()
+        return y.__round__() 
+    
+
+
+
+class fInt(fVar):
+
+    def __init__(self,value=0,pointer=True,kind=4,param=False,name=None,
+                base_addr=-1,*args,**kwargs):
+                    
+        self._cname = 'c_int'+str(kind*8)
+        self._pytpe = int
+        super(fInt, self).__init__(value=value,pointer=pointer,kind=kind,
+                                    param=param,name=name,base_addr=base_addr,
+                                    cname=self.cname,pytyp=self.pytype,
+                                    *args,**kwargs)
+    
+
         
 
 
-class _fReal(float):
+class _fReal(fVar):
     def __new__(cls,value=0.0,pointer=False,kind=4,param=False,*args,**kwargs):
         obj = super(_fReal, cls).__new__(cls, value)
         obj.pointer = pointer
@@ -133,21 +407,7 @@ class _fReal(float):
             obj._ref = obj._ctype.in_dll(_lib,obj.name)
         
         return obj
-        
-    @property
-    def _as_parameter_(self):
-        return self._ctype_p(self._ctype(self.__float__()))
-
-    @property
-    def from_param(self):
-        return self._ctype
-        
-    def in_dll(self,name=None):
-        return _in_dll(self,name)
-
-    def set_dll(self,value,name=None):
-        return _set_dll(self,value,name)
-        
+    
         
 class fSingle(_fReal):
     def __new__(cls,value=0.0,pointer=False,param=False,*args,**kwargs):
@@ -179,23 +439,13 @@ class fQuad(np.longdouble):
             obj._ref = obj._ctype.in_dll(_lib,obj.name)
         
         return obj
-        
-    @property
-    def _as_parameter_(self):
-        return self._ctype_p(self._ctype(self.__float__()))
 
-    @property
-    def from_param(self):
-        return self._ctype
         
-    def in_dll(self,name=None):
-        return _in_dll(self,name)
-
-    def set_dll(self,value,name=None):
-        return _set_dll(self,value,name)
+class fLogical(fVar):
+    pass
         
         
-class _fRealCmplx(complex):
+class _fRealCmplx(fVar):
     def __new__(cls,value=complex(0.0),pointer=False,kind=4,param=False,*args,**kwargs):
         obj = super(fReal, cls).__new__(cls, value)
         obj.pointer = pointer
@@ -247,7 +497,7 @@ class fDoubleCmplx(_fRealCmplx):
         return obj
    
 
-class fChar(bytes):
+class fChar(fVar):
     def __new__(cls,value=b'',pointer=False,param=False,length=-1,name=None,
                 *args,**kwargs):
         obj = super(fChar, cls).__new__(cls, value)
@@ -278,48 +528,14 @@ class fChar(bytes):
         
         
         return obj
-        
-    @property
-    def _as_parameter_(self):
-        return self._ctype(self.__str__())
-
-    @property
-    def from_param(self):
-        return self._ctype
 
     def in_dll(self,name=None):
-        if name is None:
-            if self.name is not None:
-                name=self.name
-            else:
-                raise ValueError("Must set name")
-                
-        self.name = name
-    
-        if self._ref is None:
-            try:
-                self._ref = self._ctype_p.in_dll(_lib,name)
-            except ValueError:
-                raise NotInLib 
 
         addr = ctypes.addressof(self._ref)
         s = ctypes.string_at(addr,self.length)
         return fChar(value=s,**self.__dict__)
 
     def set_dll(self,value,name=None):
-        if name is None:
-            if self.name is not None:
-                name=self.name
-            else:
-                raise ValueError("Must set name")
-                
-        self.name = name
-    
-        if self._ref is None:
-            try:
-                self._ref = self._ctype.in_dll(_lib,name)
-            except ValueError:
-                raise NotInLib 
 
         if type(value) == 'str':
             value = value.encode()
@@ -349,42 +565,33 @@ class fChar(bytes):
         pass
 
 
-    def _get_from_lib(self):
-        if 'mangled_name' in self.__dict__ and '_lib' in self.__dict__:
-            try:
-                return self._ctype.in_dll(self._lib, self.mangled_name)
-            except ValueError:
-                raise NotInLib
-        raise NotInLib
-        
-
     #maybe use ctypes.string_at(addr,size)?
-    def _get_var_by_iter(self, value, size=-1):
-        """ Gets a variable where we have to iterate to get multiple elements"""
-        base_address = ctypes.addressof(value)
-        return self._get_var_from_address(base_address, size=size)
+    #def _get_var_by_iter(self, value, size=-1):
+        #""" Gets a variable where we have to iterate to get multiple elements"""
+        #base_address = ctypes.addressof(value)
+        #return self._get_var_from_address(base_address, size=size)
 
-    def _get_var_from_address(self, ctype_address, size=-1):
-        out = []
-        i = 0
-        sof = ctypes.sizeof(self._ctype)
-        while True:
-            if i == size:
-                break
-            x = self._ctype.from_address(ctype_address + i * sof)
-            if x.value == b'\x00':
-                break
-            else:
-                out.append(x.value)
-            i = i + 1
-        return out
+    #def _get_var_from_address(self, ctype_address, size=-1):
+        #out = []
+        #i = 0
+        #sof = ctypes.sizeof(self._ctype)
+        #while True:
+            #if i == size:
+                #break
+            #x = self._ctype.from_address(ctype_address + i * sof)
+            #if x.value == b'\x00':
+                #break
+            #else:
+                #out.append(x.value)
+            #i = i + 1
+        #return out
 
-    def _set_var_from_iter(self, res, value, size=99999):
-        base_address = ctypes.addressof(res)
-        self._set_var_from_address(base_address, value, size)
+    #def _set_var_from_iter(self, res, value, size=99999):
+        #base_address = ctypes.addressof(res)
+        #self._set_var_from_address(base_address, value, size)
 
-    def _set_var_from_address(self, ctype_address, value, size=99999):
-        for j in range(min(len(value), size)):
-            offset = ctype_address + j * ctypes.sizeof(self._ctype)
-            self._ctype.from_address(offset).value = value[j]
+    #def _set_var_from_address(self, ctype_address, value, size=99999):
+        #for j in range(min(len(value), size)):
+            #offset = ctype_address + j * ctypes.sizeof(self._ctype)
+            #self._ctype.from_address(offset).value = value[j]
 

@@ -10,7 +10,10 @@ def find_key_val(list_dicts, key, value):
 
 
 _lib = None
+_module = ''
 
-def loadLib(filename):
-    global _lib
+def loadLib(filename,mod):
+    global _lib, module
     _lib = ctypes.CDLL(filename)
+	module = '__'+str(mod)+'__MOD__'
+
