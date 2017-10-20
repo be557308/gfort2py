@@ -462,7 +462,7 @@ class fSingleCmplx(fVar):
 
         cname = 'c_float'*2
         pytpe = complex
-        super(fSingleCmplx, self).__init__(value=value,pointer=pointer,kind=4,
+        super(fSingleCmplx, self).__init__(value=value,pointer=pointer,kind=2*4,
                                     param=param,name=name,base_addr=base_addr,
                                     cname=cname,pytype=pytype,
                                     *args,**kwargs)
@@ -503,7 +503,7 @@ class fDoubleCmplx(fVar):
 
         cname = 'c_double'*2
         pytpe = complex
-        super(fDoubleCmplx, self).__init__(value=value,pointer=pointer,kind=8,
+        super(fDoubleCmplx, self).__init__(value=value,pointer=pointer,kind=2*8,
                                     param=param,name=name,base_addr=base_addr,
                                     cname=cname,pytype=pytype,
                                     *args,**kwargs)
@@ -547,12 +547,12 @@ class fChar(fVar):
                 base_addr=-1,*args,**kwargs):
         cname = 'c_char_p'
         pytpe = bytes
-        super(fChar, self).__init__(value=value,pointer=pointer,kind=kind,
+        self._length = length
+        super(fChar, self).__init__(value=value,pointer=pointer,kind=2*length,
                                     param=param,name=name,base_addr=base_addr,
                                     cname=cname,pytype=pytype,
                                     *args,**kwargs)
                                     
-        self._length = length
 
     @property
     def _as_parameter_(self):
