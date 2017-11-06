@@ -13,7 +13,7 @@ _lib = None
 _module = ''
 
 def loadLib(filename,mod):
-    global _lib, module
+    global _lib, _module
     _lib = ctypes.CDLL(filename)
-	module = '__'+str(mod)+'__MOD__'
+    _module = '__'+str(mod)+'_MOD_'
 

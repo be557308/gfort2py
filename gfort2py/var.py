@@ -41,6 +41,8 @@ class fVar(object):
         self._mod_name = u.module + self.name
         if not self._param:
             self._up_ref()
+            if self._ref.value is None:
+                raise ValueError("Bad name")
             self._base_addr = ctypes.addressof(self._ref)
         else:
             self._ref = None
@@ -145,32 +147,32 @@ class fVar(object):
         y = y.__matmul__(x)
         return y 
 
-    def __pow__(self,x,modulo=None)
+    def __pow__(self,x,modulo=None):
         y = self._get()
         y = y.__pow__(x,modulo)
         return y 
         
-    def __lshift__(self,x)
+    def __lshift__(self,x):
         y = self._get()
         y = y.__lshift__(x)
         return y 
         
-    def __rshift__(self,x)
+    def __rshift__(self,x):
         y = self._get()
         y = y.__rshift__(x)
         return y 
         
-    def __and__(self,x)
+    def __and__(self,x):
         y = self._get()
         y = y.__and__(x)
         return y 
         
-    def __xor__(self,x)
+    def __xor__(self,x):
         y = self._get()
         y = y.__xor__(x)
         return y         
 
-    def __or__(self,x)
+    def __or__(self,x):
         y = self._get()
         y = y.__or__(x)
         return y 
@@ -211,32 +213,32 @@ class fVar(object):
         y = y.__rmatmul__(x)
         return y 
 
-    def __rpow__(self,x)
+    def __rpow__(self,x):
         y = self._get()
         y = y.__rpow__(x)
         return y 
         
-    def __rlshift__(self,x)
+    def __rlshift__(self,x):
         y = self._get()
         y = y.__rlshift__(x)
         return y 
         
-    def __rrshift__(self,x)
+    def __rrshift__(self,x):
         y = self._get()
         y = y.__rrshift__(x)
         return y 
         
-    def __rand__(self,x)
+    def __rand__(self,x):
         y = self._get()
         y = y.__rand__(x)
         return y 
         
-    def __rxor__(self,x)
+    def __rxor__(self,x):
         y = self._get()
         y = y.__rxor__(x)
         return y         
 
-    def __ror__(self,x)
+    def __ror__(self,x):
         y = self._get()
         y = y.__ror__(x)
         return y 
@@ -277,37 +279,37 @@ class fVar(object):
         self._set(y)
         return y 
 
-    def __ipow__(self,x,module=None)
+    def __ipow__(self,x,module=None):
         y = self._get()
         y = y.__pow__(x,modulo)
         self._set(y)
         return y 
         
-    def __ilshift__(self,x)
+    def __ilshift__(self,x):
         y = self._get()
         y = y.__lshift__(x)
         self._set(y)
         return y 
         
-    def __irshift__(self,x)
+    def __irshift__(self,x):
         y = self._get()
         y = y.__rshift__(x)
         self._set(y)
         return y 
         
-    def __iand__(self,x)
+    def __iand__(self,x):
         y = self._get()
         y = y.__and__(x)
         self._set(y)
         return y 
         
-    def __ixor__(self,x)
+    def __ixor__(self,x):
         y = self._get()
         y = y.__xor__(x)
         self._set(y)
         return y         
 
-    def __ior__(self,x)
+    def __ior__(self,x):
         y = self._get()
         y = y.__or__(x)
         self._set(y)
@@ -457,7 +459,7 @@ class fLogical(fVar):
         
         
 class fSingleCmplx(fVar):
-   def __init__(self,value=cmplx(0.0),pointer=True,param=False,name=None,
+    def __init__(self,value=complex(0.0),pointer=True,param=False,name=None,
                 base_addr=-1,*args,**kwargs):
 
         cname = 'c_float'*2
@@ -468,14 +470,14 @@ class fSingleCmplx(fVar):
                                     *args,**kwargs)
         
         self._length = 2
-        
-    @property
+
+    #@property
     def _as_parameter_(self):
         x = self._get()
         y = ctypes._ctype(x.real,x.imag)
         return self._ctype_p(y)
         
-    @property
+    #@property
     def from_param(self):
         return self._ctype
 
@@ -498,7 +500,7 @@ class fSingleCmplx(fVar):
         self._set_from_buffer()
         
 class fDoubleCmplx(fVar):
-   def __init__(self,value=cmplx(0.0),pointer=True,param=False,name=None,
+    def __init__(self,value=complex(0.0),pointer=True,param=False,name=None,
                 base_addr=-1,*args,**kwargs):
 
         cname = 'c_double'*2
@@ -509,14 +511,14 @@ class fDoubleCmplx(fVar):
                                     *args,**kwargs)
         
         self._length = 2
-        
-    @property
+
+    #@property
     def _as_parameter_(self):
         x = self._get()
         y = ctypes._ctype(x.real,x.imag)
         return self._ctype_p(y)
         
-    @property
+    #@property
     def from_param(self):
         return self._ctype
 
@@ -543,7 +545,7 @@ class fDoubleCmplx(fVar):
    
 
 class fChar(fVar):
-    def __init_(self,value=b'',pointer=True,param=False,name=None,length=-1
+    def __init_(self,value=b'',pointer=True,param=False,name=None,length=-1,
                 base_addr=-1,*args,**kwargs):
         cname = 'c_char_p'
         pytpe = bytes
@@ -554,11 +556,11 @@ class fChar(fVar):
                                     *args,**kwargs)
                                     
 
-    @property
+    #@property
     def _as_parameter_(self):
         return self._ctype_p(self._ctype(self._get()))
         
-    @property
+    #@property
     def from_param(self):
         return self._ctype
 

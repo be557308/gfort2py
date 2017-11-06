@@ -1,15 +1,25 @@
 from __future__ import print_function
 import ctypes
-from .var import fVar, fParam
+#from .var import fVar, fParam
 import numpy as np
-from .utils import *
-from .fnumpy import *
-from .errors import *
-from .array_static import listFAllocArrays
+#from .utils import *
+import fnumpy
+#from .errors import *
+import dt
+import var
+import sys
 
-class npFArray(np.ndarray):
+
+if sys.byteorder is 'little':
+    _byte_order="<"
+else:
+    _byte_order=">"
+
+
+
+class fArray(var.fVar):
     _GFC_MAX_DIMENSIONS = 7
-
+    
     _GFC_DTYPE_RANK_MASK = 0x07
     _GFC_DTYPE_TYPE_SHIFT = 3
     _GFC_DTYPE_TYPE_MASK = 0x38
@@ -31,361 +41,780 @@ class npFArray(np.ndarray):
     _index_t = ctypes.c_int64
     _size_t = ctypes.c_int64
     
+    _array_keys = ['array_addr','offset','dtype','dims']
+    _array_types = [ctypes.c_void_p,_size_t,_index_t]
     
-    def __new__(cls,input_array,defined=False):
-        obj = np.asarray(input_array).view(cls)
-        obj._defined = defined
-        return obj
-        
-    def __array_finalize__(self,obj):
-        if obj is None:
-            return
-        self._ctype_desc, self._ctype = self._make_ctype_struct()
-        self._defined = getattr(obj,'_defined', False)
+    _dims_keys = ['stride','lbound','ubound']
+    _dims_types = [_index_t,_index_t,_index_t]
+    
+    def __init__(self,value=None,pointer=True,kind=-1,name=None,param=False,
+                    base_addr=-1,cname=None,pytype=None,ctype=None,
+                    shape=None,ndim=None,
+                    *args,**kwargs):
+    
+        if value is None and shape is None and nidms is None:
+            raise ValueError("Must set either value, shape or ndims")
+            
+    
+        self._farray = None
+        self._pyarray = None  
+        self._shape = None
+        self._ndim = None 
+        self._pyalloc = False
+        self._falloc = False
+            
+        if value is not None:
+            if not isinstance(value,np.ndarray):
+                raise ValueError("Value must be a numpy array")
+            self._pyarray = value
+            self._shape = value.shape
+            self.ndim = value.ndim
+            self._pyalloc = True
+            base_addr = self._pyarray.ctypes.data
+                
+        if shape is not None:
+            if not type(shape) in [list,tuple]:
+                raise ValueError("Shape must be a lit or tuple")
+            self._pyarray = np.zeros(shape)
+            self._shape = shape
+            self._ndims = len(shape)
+            self._pyalloc = True
+            base_addr = self._pyarray.ctypes.data
+                
+        if ndim is not None:
+            if not type(shape) is int and ndim > 0:
+                raise ValueError("ndims int and > 0")
+            self._ndim = ndim
+            self._falloc = True
 
-    def _make_ctype_struct(self):
-        desc = listFAllocArrays[self.ndim-1]
-        ctype = desc()
-        
-        ctype.base_addr = self.ctypes.data
-        ctype.offset = self._index_t(-1)
-        ctype.dtype = self._size_t(self._get_dtype())
-        
-        for i in range(self.ndim):
-            ctype.dims[i].stride = self._index_t(self.strides[i]//self.itemsize)
-            ctype.dims[i].lbound = self._index_t(1)
-            ctype.dims[i].ubound = self._index_t(self.shape[i]) 
-        
-        return desc, ctype
-        
-
-    def _get_dtype(self):
-        ftype=self._get_ftype()
-        d=self.ndim
-        d=d|(ftype<<self._GFC_DTYPE_TYPE_SHIFT)
-        d=d|(self.itemsize*8)<<self._GFC_DTYPE_SIZE_SHIFT
-        return d
-
-    def _get_ftype(self):
-        ftype=None
-        dtype = self.dtype.name
-        if 'int' in dtype:
-            ftype=self._BT_INTEGER
-        elif 'float' in dtype:
-            ftype=self._BT_REAL
-        elif 'bool' in dtype:
-            ftype=self._BT_LOGICAL
-        elif 'str' in dtype:
-            ftype=self._BT_CHARACTER
+        if base_addr > 0:
+            self._base_addr = base_addr
         else:
-            raise ValueError("Cant match dtype, got "+dtype)
-        return ftype
+            self._base_addr = None
+    
+    
+        self._pointer = pointer
+        self._kind = kind
+        self._name = name
 
-    @property
-    def _as_parameter_(self):
-        if self._defined:
-            return self.ctypes.data
+        self._param = param
+ 
+        self._cname = cname
+        self._ctype = ctypes.c_void_p
+        self._ctype_p = ctypes.c_void_p
+        
+        self._mod_name = None
+        if self._name is not None:
+            self._mod_name = u.module + self._name
+            
+        #python type of indivdual element
+        self._pytype_s = pytype
+        #ctype of a single element
+        self._ctype_s = ctype
+        
+        #Create storage area for fortran array:
+        self._farray = dt.fDT(keys=self._create_keys(self._ndim),
+                              key_types=self._create_types(self._ndim)
+                              base_addr=-1)
+        
+
+    def _get(self):
+        #Two paths, either we only have _pyarray or we ned to get get the data
+        # from _farray
+        if self._farray.base_addr == -1:
+            #_farray not set 
+            return self._pyarray
         else:
-            return self._ctype
-
-    @property
-    def from_param(self):
-        if self._defined:
-            return ctypes.c_void_p
-        else:
-            return self._ctype_desc
+            if self._mod_name is not None:
+                # This points to th first element of the array and itertaing
+                # on this gets us the array
+                array_addr = ctypes.c_void_p.in_dll(u._lib,self._mod_name)
+                # This is the addressof the whole array structure
+                # TODO: Check if this is the same for a fixed size array
+                self._base_addr = ctypes.addressof(array_addr)
             
-            
-            
-class fArray(fVar):
-    def __init__(self, lib, obj):
-        self.__dict__.update(obj)
-        self._lib = lib
+            if self._base_addr < 0:
+                raise ValueError("Must set either the name or base_addr of array")
 
-
-        if 'array' in self.var:
-            self.__dict__.update(obj['var'])
-
-        self._ndim = int(self.array['ndims'])
-        self._lib = lib
-        
-        defined, shape = self._array_shape()
-        self._value = npFArray(np.zeros(shape),defined=defined)
-        
-        self._desc = self._value._desc
-        self._ctype_single = getattr(ctypes,self.ctype)
-        self._ctype = self._value._ctype
-        self._ctype_desc = ctypes.POINTER(self._desc)
-        
+            self._farray.base_addr = self._base_addr
+            self._farray['array_addr'] = array_addr
+            self._ndim, BT, size = self._split_dtype(self._farray['dtype'])
             
-    def _array_shape(self):
-        try:
-            bounds = self.array['bounds']
-        except KeyError:
-            return False,(self._ndim)
+            self._shape = self._get_shape()
+            
+            self._farray.__array_interface__ = self._create_array_interface(
+                                            shape=self._shape,
+                                            typestr=self._BT_to_typestr(BT)+str(size),
+                                            data=self._farray['array_addr'],
+                                            strides=self._get_strides()
+                                            )
+            
+            self._pyarray = np.ctypeslib.as_array(self._farray['array_addr'])
+            fnumpy.remove_ownership(self._pyarray)
+            
+        return self._pyarray
         
+    def _set(self,value,base_addr=-1,name=None):
+        if self._param:
+            raise ValueError("Cant alter a parameter")
+        
+        self._pyarray = value
+        self._shape = value.shape
+        self.ndim = value.ndim
+        self._pyalloc = True
+        base_addr = self._pyarray.ctypes.data
+        
+        if name is not None:
+            self._mod_name = u.module + name
+            array_addr = ctypes.c_void_p.in_dll(u._lib,self._mod_name)
+            base_addr = ctypes.addressof(array_addr)
+        
+        if base_addr > 0:
+            self._base_addr = base_addr
+            
+        if self._base_addr < 0:
+            raise ValueError("Must set either the name or base_addr of array")
+        
+        
+        
+        
+    def _create_array_interface(self,shape,typestr,data,strides,version=3):
+        return dict(
+                    'shape': shape
+                    'typestr': typestr
+                    'data': data
+                    'strides': strides
+                    'version': version
+                    )
+        
+    def _get_bounds(self):
+        bounds = []
+        for i in range(self._ndim):
+            bounds.append([self._farray['lbound'_+str(i)],
+                          self._farray['ubound'_+str(i)],
+                          self._farray['stride'_+str(i)],
+                          ])
+        return bounds
+        
+    def _get_shape(self):
+        bounds = self._get_bounds()
         shape = []
-        for i, j in zip(bounds[0::2], bounds[1::2]):
-            shape.append(j - i + 1)
-        return True,shape
+        for i in bounds:
+            shape.append((1,i[1]-i[0]))
+        
+        return shape
+    
+    def _get_strides(self):
+        bounds = self._get_bounds()
+        strides = []
+        for i in bounds:
+            strides.append(i[2])
+        
+        return strides
+        
+        
+    #def _set(self,value):
+        #pass
 
-    def _array_size(self):
-        return np.product(self._make_array_shape(bounds))
-            
-            
-    def _find_in_lib(self):
-        return self._desc.in_dll(self._lib,self.mangled_name)
-        
-            
-    def set_mod(self, value):
-        """
-        Set a module level variable
-        """
-        self._value.carray=self._find_in_lib()
-        self._value._set_value(value)
-        
-        return 
-        
-    def get(self,copy=False):
-        """
-        Get a module level variable
-        """           
-        return self._value.value
-        
-
-    def py_to_ctype(self, value):
-        """
-        Pass in a python value returns the ctype representation of it
-        """
-        self.set_func_arg(value)
-        
-        return self._value.ptr
-        
-    def py_to_ctype_f(self, value):
-        """
-        Pass in a python value returns the ctype representation of it, 
-        suitable for a function
-        
-        Second return value is anything that needs to go at the end of the
-        arg list, like a string len
-        """
-        return self.py_to_ctype(value),None
-
-    def ctype_to_py(self, value):
-        """
-        Pass in a ctype value returns the python representation of it
-        """
-        return self.ctype_to_py_f(value.contents)
-        
-    def ctype_to_py_f(self, value):
-        """
-        Pass in a ctype value returns the python representation of it,
-        as returned by a function (may be a pointer)
-        """
-        if hasattr(value,'contents'):
-            self._value.carray = value.contents
+    def _create_dtype(self,ndim,itemsize,ftype):
+        ftype=self._get_BT(ftype)
+        d=ndim
+        d=d|(ftype<<self._GFC_DTYPE_TYPE_SHIFT)
+        d=d|(itemsize*8)<<self._GFC_DTYPE_SIZE_SHIFT
+        return d
+    
+    def _get_BT(self,ftype):
+        if 'int' in ftype:
+            BT=self._BT_INTEGER
+        elif 'float' in ftype:
+            BT=self._BT_REAL
+        elif 'bool' in ftype:
+            BT=self._BT_LOGICAL
+        elif 'str' in ftype:
+            BT=self._BT_CHARACTER
         else:
-            self._value.carray = value
+            raise ValueError("Cant match dtype, got "+ftype)
+        return BT
         
-        return self._value
-
-            
-    def py_to_ctype_p(self,value):
-        """
-        The ctype represnation suitable for function arguments wanting a pointer
-        """
-        return self.py_to_ctype(value)
-            
-
-    def pytype_def(self):
-        return np.array
-
-    def ctype_def(self):
-        """
-        The ctype type of this object
-        """
-        return self._ctype_desc
-
-    def ctype_def_func(self,pointer=False,intent=''):
-        """
-        The ctype type of a value suitable for use as an argument of a function
-
-        May just call ctype_def
-        
-        Second return value is anythng that needs to go at the end of the
-        arg list, like a string len
-        """
-
-        return self.ctype_def(),None 
-            
-            
-              
-class fDummyArray(fVar):
-
-    def __init__(self, lib, obj):
-        self.__dict__.update(obj)
-        self._lib = lib
-
-        print(obj)
-        if 'array' in self.var:
-            self.__dict__.update(obj['var'])
-
-        self.ndim = int(self.array['ndims'])
-        self._lib = lib
-        
-        self._desc = self._setup_desc()
-        self._ctype_single = getattr(ctypes,self.ctype)
-        self._ctype = self._desc
-        self._ctype_desc = ctypes.POINTER(self._desc)
-        self._value = self._desc(self._ctype_single,self.pytype,self._desc)
-        
-
-    def _setup_desc(self):
-        return _listFAllocArrays[self.ndim]
-
-    def set_mod(self, value):
-        """
-        Set a module level variable
-        """
-        self._value.carray=self._find_in_lib()
-        self._value._set_value(value)
-        
-        return 
-        
-        
-        
-    def set_func_arg(self,value):
-        self._value._set_value(value)
-
-        
-    def get(self,copy=False):
-        """
-        Get a module level variable
-        """           
-        return self._value.value
-        
-
-    def py_to_ctype(self, value):
-        """
-        Pass in a python value returns the ctype representation of it
-        """
-        self.set_func_arg(value)
-        
-        return self._value.ptr
-        
-    def py_to_ctype_f(self, value):
-        """
-        Pass in a python value returns the ctype representation of it, 
-        suitable for a function
-        
-        Second return value is anything that needs to go at the end of the
-        arg list, like a string len
-        """
-        return self.py_to_ctype(value),None
-
-    def ctype_to_py(self, value):
-        """
-        Pass in a ctype value returns the python representation of it
-        """
-        return self.ctype_to_py_f(value.contents)
-        
-    def ctype_to_py_f(self, value):
-        """
-        Pass in a ctype value returns the python representation of it,
-        as returned by a function (may be a pointer)
-        """
-        if hasattr(value,'contents'):
-            self._value.carray = value.contents
+    def _BT_to_typestr(self,BT)
+        res=""
+        if self._BT_UNKNOWN == BT
+            res=='v'
+        elif self._BT_INTEGER == BT
+            res=='i'
+        elif self._BT_LOGICAL == BT
+            res=='b'
+        elif self._BT_REAL == BT
+            res=='f'
+        elif self._BT_COMPLEX == BT
+            res=='c'
+        elif self._BT_DERIVED == BT
+            res=='v'
+        elif self._BT_CHARACTER == BT
+            res=='v'
+        elif self._BT_CLASS == BT
+            res=='v'
+        elif self._BT_PROCEDURE == BT
+            res=='v'
+        elif self._BT_HOLLERITH== BT
+            res=='v'
+        elif self._BT_VOID == BT
+            res=='v'
+        elif self._BT_ASSUMED == BT
+            res=='v'
         else:
-            self._value.carray = value
-        
-        return self._value
-
+            raise AttributeError("Bad BT")
             
-    def py_to_ctype_p(self,value):
-        """
-        The ctype represnation suitable for function arguments wanting a pointer
-        """
-        return self.py_to_ctype(value)
-            
+        return res+_byte_order
+    
 
-    def pytype_def(self):
-        return np.array
-
-    def ctype_def(self):
-        """
-        The ctype type of this object
-        """
-        return self._ctype_desc
-
-    def ctype_def_func(self,pointer=False,intent=''):
-        """
-        The ctype type of a value suitable for use as an argument of a function
-
-        May just call ctype_def
+    def _split_dtype(self,dtype):
         
-        Second return value is anythng that needs to go at the end of the
-        arg list, like a string len
-        """
-
-        return self.ctype_def(),None
-
-    def __str__(self):
-        x=self.get()
-        if x is None:
-            return "<array>"
-        else:
-            return str(self.get())
+        itemsize = dtype >> self._GFC_DTYPE_SIZE_SHIFT
+        BT = (dtype >> self._GFC_DTYPE_TYPE_SHIFT ) & (self._GFC_DTYPE_RANK_MASK)
+        ndim = dtype & self._GFC_DTYPE_RANK_MASK
         
-    def __repr__(self):
-        x=self.get()
-        if x is None:
-            return "<array>"
-        else:
-            return repr(self.get())
+        return ndim,BT,int(itemsize/8)
 
-    def __getattr__(self, name): 
-        if name in self.__dict__:
-            return self.__dict__[name]
-
-class fAssumedShape(fDummyArray):
-    pass
-    #def _get_pointer(self):
-        #return self._ctype_desc.from_address(ctypes.addressof(self._value_array))
+    def _array_names(names,ndim):
+        res = []
+        for j in range(ndim):
+            for i in names:
+                res.append(i+"_"+int(j))
+        return res
     
     
-    #def set_func_arg(self,value):
-        
-        #super(fAssumedShape,self).set_func_arg(value)
-        
-        ##Fix up bounds
+    def _create_keys(ndim):
+        return _array_keys+_array_names(_dims_keys,ndim)
     
-        ##From gcc source code
-        ##Parsed       Lower   Upper  Returned
-        ##------------------------------------
-          ##:           NULL    NULL   AS_DEFERRED (*)
-          ##x            1       x     AS_EXPLICIT
-          ##x:           x      NULL   AS_ASSUMED_SHAPE
-          ##x:y          x       y     AS_EXPLICIT
-          ##x:*          x      NULL   AS_ASSUMED_SIZE
-          ##*            1      NULL   AS_ASSUMED_SIZE
-          
-       ## for i in range(self.ndim):
-            ##print(self._value_array.dims[i].lbound,self._value_array.dims[i].ubound)
-            ##self._value_array.dims[i].ubound=0
-            ##self._value_array.dims[i].lbound=0
-            
-    #def __str__(self):
-        #return str(self._value_array)
+    
+    def _create_types(ndim):
+        return _array_types+_dims_types*ndim
         
-    #def __repr__(self):
-        #return repr(self._value_array)
+        
+        
+#####################################################################
+
+#class npFArray(np.ndarray):
+    #_GFC_MAX_DIMENSIONS = 7
+
+    #_GFC_DTYPE_RANK_MASK = 0x07
+    #_GFC_DTYPE_TYPE_SHIFT = 3
+    #_GFC_DTYPE_TYPE_MASK = 0x38
+    #_GFC_DTYPE_SIZE_SHIFT = 6
+
+    #_BT_UNKNOWN = 0
+    #_BT_INTEGER = _BT_UNKNOWN + 1
+    #_BT_LOGICAL = _BT_INTEGER + 1
+    #_BT_REAL = _BT_LOGICAL + 1
+    #_BT_COMPLEX = _BT_REAL + 1
+    #_BT_DERIVED = _BT_COMPLEX + 1
+    #_BT_CHARACTER = _BT_DERIVED + 1
+    #_BT_CLASS = _BT_CHARACTER + 1
+    #_BT_PROCEDURE = _BT_CLASS + 1
+    #_BT_HOLLERITH = _BT_PROCEDURE + 1
+    #_BT_VOID = _BT_HOLLERITH + 1
+    #_BT_ASSUMED = _BT_VOID + 1
+    
+    #_index_t = ctypes.c_int64
+    #_size_t = ctypes.c_int64
+    
+    
+    #def __new__(cls,input_array,defined=False):
+        #obj = np.asarray(input_array).view(cls)
+        #obj._defined = defined
+        #return obj
+        
+    #def __array_finalize__(self,obj):
+        #if obj is None:
+            #return
+        #self._ctype_desc, self._ctype = self._make_ctype_struct()
+        #self._defined = getattr(obj,'_defined', False)
+
+    #def _make_ctype_struct(self):
+        #desc = listFAllocArrays[self.ndim-1]
+        #ctype = desc()
+        
+        #ctype.base_addr = self.ctypes.data
+        #ctype.offset = self._index_t(-1)
+        #ctype.dtype = self._size_t(self._get_dtype())
+        
+        #for i in range(self.ndim):
+            #ctype.dims[i].stride = self._index_t(self.strides[i]//self.itemsize)
+            #ctype.dims[i].lbound = self._index_t(1)
+            #ctype.dims[i].ubound = self._index_t(self.shape[i]) 
+        
+        #return desc, ctype
+        
+
+    #def _get_dtype(self):
+        #ftype=self._get_ftype()
+        #d=self.ndim
+        #d=d|(ftype<<self._GFC_DTYPE_TYPE_SHIFT)
+        #d=d|(self.itemsize*8)<<self._GFC_DTYPE_SIZE_SHIFT
+        #return d
+
+    #def _get_ftype(self):
+        #ftype=None
+        #dtype = self.dtype.name
+        #if 'int' in dtype:
+            #ftype=self._BT_INTEGER
+        #elif 'float' in dtype:
+            #ftype=self._BT_REAL
+        #elif 'bool' in dtype:
+            #ftype=self._BT_LOGICAL
+        #elif 'str' in dtype:
+            #ftype=self._BT_CHARACTER
+        #else:
+            #raise ValueError("Cant match dtype, got "+dtype)
+        #return ftype
+
+    #@property
+    #def _as_parameter_(self):
+        #if self._defined:
+            #return self.ctypes.data
+        #else:
+            #return self._ctype
+
+    #@property
+    #def from_param(self):
+        #if self._defined:
+            #return ctypes.c_void_p
+        #else:
+            #return self._ctype_desc
+            
+            
+            
+#class fArray(fVar):
+    #def __init__(self, lib, obj):
+        #self.__dict__.update(obj)
+        #self._lib = lib
+
+
+        #if 'array' in self.var:
+            #self.__dict__.update(obj['var'])
+
+        #self._ndim = int(self.array['ndims'])
+        #self._lib = lib
+        
+        #defined, shape = self._array_shape()
+        #self._value = npFArray(np.zeros(shape),defined=defined)
+        
+        #self._desc = self._value._desc
+        #self._ctype_single = getattr(ctypes,self.ctype)
+        #self._ctype = self._value._ctype
+        #self._ctype_desc = ctypes.POINTER(self._desc)
+        
+            
+    #def _array_shape(self):
+        #try:
+            #bounds = self.array['bounds']
+        #except KeyError:
+            #return False,(self._ndim)
+        
+        #shape = []
+        #for i, j in zip(bounds[0::2], bounds[1::2]):
+            #shape.append(j - i + 1)
+        #return True,shape
+
+    #def _array_size(self):
+        #return np.product(self._make_array_shape(bounds))
+            
+            
+    #def _find_in_lib(self):
+        #return self._desc.in_dll(self._lib,self.mangled_name)
+        
+            
+    #def set_mod(self, value):
+        #"""
+        #Set a module level variable
+        #"""
+        #self._value.carray=self._find_in_lib()
+        #self._value._set_value(value)
+        
+        #return 
+        
+    #def get(self,copy=False):
+        #"""
+        #Get a module level variable
+        #"""           
+        #return self._value.value
+        
 
     #def py_to_ctype(self, value):
         #"""
         #Pass in a python value returns the ctype representation of it
         #"""
         #self.set_func_arg(value)
+        
+        #return self._value.ptr
+        
+    #def py_to_ctype_f(self, value):
+        #"""
+        #Pass in a python value returns the ctype representation of it, 
+        #suitable for a function
+        
+        #Second return value is anything that needs to go at the end of the
+        #arg list, like a string len
+        #"""
+        #return self.py_to_ctype(value),None
+
+    #def ctype_to_py(self, value):
+        #"""
+        #Pass in a ctype value returns the python representation of it
+        #"""
+        #return self.ctype_to_py_f(value.contents)
+        
+    #def ctype_to_py_f(self, value):
+        #"""
+        #Pass in a ctype value returns the python representation of it,
+        #as returned by a function (may be a pointer)
+        #"""
+        #if hasattr(value,'contents'):
+            #self._value.carray = value.contents
+        #else:
+            #self._value.carray = value
+        
+        #return self._value
+
+            
+    #def py_to_ctype_p(self,value):
+        #"""
+        #The ctype represnation suitable for function arguments wanting a pointer
+        #"""
+        #return self.py_to_ctype(value)
+            
+
+    #def pytype_def(self):
+        #return np.array
+
+    #def ctype_def(self):
+        #"""
+        #The ctype type of this object
+        #"""
+        #return self._ctype_desc
+
+    #def ctype_def_func(self,pointer=False,intent=''):
+        #"""
+        #The ctype type of a value suitable for use as an argument of a function
+
+        #May just call ctype_def
+        
+        #Second return value is anythng that needs to go at the end of the
+        #arg list, like a string len
+        #"""
+
+        #return self.ctype_def(),None 
+            
+            
+              
+#class fDummyArray(fVar):
+
+    #def __init__(self, lib, obj):
+        #self.__dict__.update(obj)
+        #self._lib = lib
+
+        #print(obj)
+        #if 'array' in self.var:
+            #self.__dict__.update(obj['var'])
+
+        #self.ndim = int(self.array['ndims'])
+        #self._lib = lib
+        
+        #self._desc = self._setup_desc()
+        #self._ctype_single = getattr(ctypes,self.ctype)
+        #self._ctype = self._desc
+        #self._ctype_desc = ctypes.POINTER(self._desc)
+        #self._value = self._desc(self._ctype_single,self.pytype,self._desc)
+        
+
+    #def _setup_desc(self):
+        #return _listFAllocArrays[self.ndim]
+
+    #def set_mod(self, value):
+        #"""
+        #Set a module level variable
+        #"""
+        #self._value.carray=self._find_in_lib()
+        #self._value._set_value(value)
+        
+        #return 
+        
+        
+        
+    #def set_func_arg(self,value):
+        #self._value._set_value(value)
+
+        
+    #def get(self,copy=False):
+        #"""
+        #Get a module level variable
+        #"""           
+        #return self._value.value
+        
+
+    #def py_to_ctype(self, value):
+        #"""
+        #Pass in a python value returns the ctype representation of it
+        #"""
+        #self.set_func_arg(value)
+        
+        #return self._value.ptr
+        
+    #def py_to_ctype_f(self, value):
+        #"""
+        #Pass in a python value returns the ctype representation of it, 
+        #suitable for a function
+        
+        #Second return value is anything that needs to go at the end of the
+        #arg list, like a string len
+        #"""
+        #return self.py_to_ctype(value),None
+
+    #def ctype_to_py(self, value):
+        #"""
+        #Pass in a ctype value returns the python representation of it
+        #"""
+        #return self.ctype_to_py_f(value.contents)
+        
+    #def ctype_to_py_f(self, value):
+        #"""
+        #Pass in a ctype value returns the python representation of it,
+        #as returned by a function (may be a pointer)
+        #"""
+        #if hasattr(value,'contents'):
+            #self._value.carray = value.contents
+        #else:
+            #self._value.carray = value
+        
+        #return self._value
+
+            
+    #def py_to_ctype_p(self,value):
+        #"""
+        #The ctype represnation suitable for function arguments wanting a pointer
+        #"""
+        #return self.py_to_ctype(value)
+            
+
+    #def pytype_def(self):
+        #return np.array
+
+    #def ctype_def(self):
+        #"""
+        #The ctype type of this object
+        #"""
+        #return self._ctype_desc
+
+    #def ctype_def_func(self,pointer=False,intent=''):
+        #"""
+        #The ctype type of a value suitable for use as an argument of a function
+
+        #May just call ctype_def
+        
+        #Second return value is anythng that needs to go at the end of the
+        #arg list, like a string len
+        #"""
+
+        #return self.ctype_def(),None
+
+    #def __str__(self):
+        #x=self.get()
+        #if x is None:
+            #return "<array>"
+        #else:
+            #return str(self.get())
+        
+    #def __repr__(self):
+        #x=self.get()
+        #if x is None:
+            #return "<array>"
+        #else:
+            #return repr(self.get())
+
+    #def __getattr__(self, name): 
+        #if name in self.__dict__:
+            #return self.__dict__[name]
+
+#class fAssumedShape(fDummyArray):
+    #pass
+    ##def _get_pointer(self):
+        ##return self._ctype_desc.from_address(ctypes.addressof(self._value_array))
+    
+    
+    ##def set_func_arg(self,value):
+        
+        ##super(fAssumedShape,self).set_func_arg(value)
+        
+        ###Fix up bounds
+    
+        ###From gcc source code
+        ###Parsed       Lower   Upper  Returned
+        ###------------------------------------
+          ###:           NULL    NULL   AS_DEFERRED (*)
+          ###x            1       x     AS_EXPLICIT
+          ###x:           x      NULL   AS_ASSUMED_SHAPE
+          ###x:y          x       y     AS_EXPLICIT
+          ###x:*          x      NULL   AS_ASSUMED_SIZE
+          ###*            1      NULL   AS_ASSUMED_SIZE
+          
+       ### for i in range(self.ndim):
+            ###print(self._value_array.dims[i].lbound,self._value_array.dims[i].ubound)
+            ###self._value_array.dims[i].ubound=0
+            ###self._value_array.dims[i].lbound=0
+            
+    ##def __str__(self):
+        ##return str(self._value_array)
+        
+    ##def __repr__(self):
+        ##return repr(self._value_array)
+
+    ##def py_to_ctype(self, value):
+        ##"""
+        ##Pass in a python value returns the ctype representation of it
+        ##"""
+        ##self.set_func_arg(value)
+        ##return self._value_array
+        
+    ##def py_to_ctype_f(self, value):
+        ##"""
+        ##Pass in a python value returns the ctype representation of it, 
+        ##suitable for a function
+        
+        ##Second return value is anything that needs to go at the end of the
+        ##arg list, like a string len
+        ##"""
+        ##return self.py_to_ctype(value),None    
+    
+
+#class fExplicitArray(fVar):
+
+    #def __init__(self, lib, obj):
+        #self.__dict__.update(obj)
+        #self._lib = lib
+        #self._pytype = np.array
+        #self.ctype = self.var['array']['ctype']
+        
+        #self._ctype = self.ctype_def()
+        
+        #if 'array' in self.var:
+          #self.__dict__.update(obj['var'])
+        
+        #self.ndims = int(self.array['ndims'])
+        ##self._ctype_f = self.ctype_def_func()
+        #self._dtype=self.pytype+str(8*ctypes.sizeof(self._ctype))
+
+        ##Store the ref to the lib object
+        #try:   
+            #self._ref = self._get_from_lib()
+        #except NotInLib:
+            #self._ref = None
+
+    #def ctype_to_py(self, value):
+        #"""
+        #Pass in a ctype value returns the python representation of it
+        #"""
+        #return self._get_var_by_iter(value, self._array_size())
+        
+    #def py_to_ctype_f(self, value):
+        #"""
+        #Pass in a python value returns the ctype representation of it, 
+        #suitable for a function
+        
+        #Second return value is anything that needs to go at the end of the
+        #arg list, like a string len
+        #"""
+        #self._data = np.asfortranarray(value.T.astype(self._dtype))
+
+        #return self._data,None
+        
+    #def ctype_to_py_f(self, value):
+        #"""
+        #Pass in a ctype value returns the python representation of it,
+        #as returned by a function (may be a pointer)
+        #"""
+        #self._value = np.asfortranarray(value,dtype=self._dtype)
+        #return self._value
+
+    #def pytype_def(self):
+        #return self._pytype
+
+    #def ctype_def(self):
+        #"""
+        #The ctype type of this object
+        #"""
+        #if '_cached_ctype' not in self.__dict__:
+            #self._cached_ctype = getattr(ctypes, self.ctype)
+        
+        #return self._cached_ctype
+
+    #def ctype_def_func(self,pointer=False,intent=''):
+        #"""
+        #The ctype type of a value suitable for use as an argument of a function
+
+        #May just call ctype_def
+        
+        #Second return value is anythng that needs to go at the end of the
+        #arg list, like a string len
+        #"""
+        #if pointer:
+            #raise ValueError("Cant have explicit array as a pointer")
+        
+        #x=np.ctypeslib.ndpointer(dtype=self._dtype,ndim=self.ndims,
+                                #flags='F_CONTIGUOUS')
+        #y=None
+        #return x,y        
+        
+    #def set_mod(self, value):
+        #"""
+        #Set a module level variable
+        #"""
+        #v = value.flatten(order='C')
+        #self._set_var_from_iter(self._ref, v, self._array_size())
+        
+    #def get(self,copy=True):
+        #"""
+        #Get a module level variable
+        #"""
+        #s = self.ctype_to_py(self._ref)
+        #shape = self._make_array_shape()
+        #return np.reshape(s, shape)
+
+    #def _make_array_shape(self,bounds=None):
+        #if bounds is None:
+            #bounds = self.array['bounds']
+        
+        #shape = []
+        #for i, j in zip(bounds[0::2], bounds[1::2]):
+            #shape.append(j - i + 1)
+        #return shape
+
+    #def _array_size(self,bounds=None):
+        #return np.product(self._make_array_shape(bounds))
+       
+    #def py_to_ctype_p(self,value):
+        #"""
+        #The ctype represnation suitable for function arguments wanting a pointer
+        #"""
+
+        #raise AttributeError("Cant have explicit array as a pointer")
+
+    
+    
+#class fAssumedSize(fExplicitArray):
+    #pass
+    
+#class fAllocatableArray(fDummyArray):
+    #def py_to_ctype(self, value):
+        #"""
+        #Pass in a python value returns the ctype representation of it
+        #"""
+        #self.set_func_arg(value)
+        
+        ## self._value_array needs to be empty if the array is allocatable and not
+        ## allready allocated
+        #self._value_array.base_addr=ctypes.c_void_p(0)
+        
         #return self._value_array
         
     #def py_to_ctype_f(self, value):
@@ -396,169 +825,28 @@ class fAssumedShape(fDummyArray):
         #Second return value is anything that needs to go at the end of the
         #arg list, like a string len
         #"""
-        #return self.py_to_ctype(value),None    
+        #return self.py_to_ctype(value),None   
+        
+    #def ctype_to_py_f(self, value):
+        #"""
+        #Pass in a ctype value returns the python representation of it,
+        #as returned by a function (may be a pointer)
+        #"""
+        #shape=[]
+        #for i in value.dims:
+            #shape.append(i.ubound-i.lbound+1)
+        #shape=tuple(shape)
+        
+        #p=ctypes.POINTER(self._ctype_single)
+        #res=ctypes.cast(value.base_addr,p)
+        #return np.ctypeslib.as_array(res,shape=shape)
     
-
-class fExplicitArray(fVar):
-
-    def __init__(self, lib, obj):
-        self.__dict__.update(obj)
-        self._lib = lib
-        self._pytype = np.array
-        self.ctype = self.var['array']['ctype']
-        
-        self._ctype = self.ctype_def()
-        
-        if 'array' in self.var:
-          self.__dict__.update(obj['var'])
-        
-        self.ndims = int(self.array['ndims'])
-        #self._ctype_f = self.ctype_def_func()
-        self._dtype=self.pytype+str(8*ctypes.sizeof(self._ctype))
-
-        #Store the ref to the lib object
-        try:   
-            self._ref = self._get_from_lib()
-        except NotInLib:
-            self._ref = None
-
-    def ctype_to_py(self, value):
-        """
-        Pass in a ctype value returns the python representation of it
-        """
-        return self._get_var_by_iter(value, self._array_size())
-        
-    def py_to_ctype_f(self, value):
-        """
-        Pass in a python value returns the ctype representation of it, 
-        suitable for a function
-        
-        Second return value is anything that needs to go at the end of the
-        arg list, like a string len
-        """
-        self._data = np.asfortranarray(value.T.astype(self._dtype))
-
-        return self._data,None
-        
-    def ctype_to_py_f(self, value):
-        """
-        Pass in a ctype value returns the python representation of it,
-        as returned by a function (may be a pointer)
-        """
-        self._value = np.asfortranarray(value,dtype=self._dtype)
-        return self._value
-
-    def pytype_def(self):
-        return self._pytype
-
-    def ctype_def(self):
-        """
-        The ctype type of this object
-        """
-        if '_cached_ctype' not in self.__dict__:
-            self._cached_ctype = getattr(ctypes, self.ctype)
-        
-        return self._cached_ctype
-
-    def ctype_def_func(self,pointer=False,intent=''):
-        """
-        The ctype type of a value suitable for use as an argument of a function
-
-        May just call ctype_def
-        
-        Second return value is anythng that needs to go at the end of the
-        arg list, like a string len
-        """
-        if pointer:
-            raise ValueError("Cant have explicit array as a pointer")
-        
-        x=np.ctypeslib.ndpointer(dtype=self._dtype,ndim=self.ndims,
-                                flags='F_CONTIGUOUS')
-        y=None
-        return x,y        
-        
-    def set_mod(self, value):
-        """
-        Set a module level variable
-        """
-        v = value.flatten(order='C')
-        self._set_var_from_iter(self._ref, v, self._array_size())
-        
-    def get(self,copy=True):
-        """
-        Get a module level variable
-        """
-        s = self.ctype_to_py(self._ref)
-        shape = self._make_array_shape()
-        return np.reshape(s, shape)
-
-    def _make_array_shape(self,bounds=None):
-        if bounds is None:
-            bounds = self.array['bounds']
-        
-        shape = []
-        for i, j in zip(bounds[0::2], bounds[1::2]):
-            shape.append(j - i + 1)
-        return shape
-
-    def _array_size(self,bounds=None):
-        return np.product(self._make_array_shape(bounds))
-       
-    def py_to_ctype_p(self,value):
-        """
-        The ctype represnation suitable for function arguments wanting a pointer
-        """
-
-        raise AttributeError("Cant have explicit array as a pointer")
-
-    
-    
-class fAssumedSize(fExplicitArray):
-    pass
-    
-class fAllocatableArray(fDummyArray):
-    def py_to_ctype(self, value):
-        """
-        Pass in a python value returns the ctype representation of it
-        """
-        self.set_func_arg(value)
-        
-        # self._value_array needs to be empty if the array is allocatable and not
-        # allready allocated
-        self._value_array.base_addr=ctypes.c_void_p(0)
-        
-        return self._value_array
-        
-    def py_to_ctype_f(self, value):
-        """
-        Pass in a python value returns the ctype representation of it, 
-        suitable for a function
-        
-        Second return value is anything that needs to go at the end of the
-        arg list, like a string len
-        """
-        return self.py_to_ctype(value),None   
-        
-    def ctype_to_py_f(self, value):
-        """
-        Pass in a ctype value returns the python representation of it,
-        as returned by a function (may be a pointer)
-        """
-        shape=[]
-        for i in value.dims:
-            shape.append(i.ubound-i.lbound+1)
-        shape=tuple(shape)
-        
-        p=ctypes.POINTER(self._ctype_single)
-        res=ctypes.cast(value.base_addr,p)
-        return np.ctypeslib.as_array(res,shape=shape)
-    
-class fParamArray(fParam):
-    def get(self):
-        """
-        A parameters value is stored in the dict, as we cant access them
-        from the shared lib.
-        """
-        return np.array(self.value, dtype=self.pytype)
+#class fParamArray(fParam):
+    #def get(self):
+        #"""
+        #A parameters value is stored in the dict, as we cant access them
+        #from the shared lib.
+        #"""
+        #return np.array(self.value, dtype=self.pytype)
 
 

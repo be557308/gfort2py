@@ -1,41 +1,69 @@
 import collections
 import utils as u
 import numpy as np
+import ctypes
 
 
-class derivedType(collections.OrderedDict):
+class fDT(collections.MutableMapping):
 	def __init__(self,name=None,base_addr=-1,keys=[],key_sizes=[],key_types=[]):
 		self._name = name
 		self._base_addr = base_addr
 		
 		if self._name is not None:
-			self._ref = ctypes.c_void_p.in_dll(u._lib,name)
+			self._mod_name = u._module + self._name
+			self._up_ref()
+			self._ref = None
 		
-		self._keys = keys
-		self._key_sizes = key_sizes
-		self._key_types = key_types
-		
-		if len(self._keys) != len(self._key_sizes):
-			raise ValueError("Keys and offets must be same length, got "+str(len(self._keys))+" and " + str(len(self._key_sizes)))
+		if len(key_sizes)==0:
+			key_sizes = [ctypes.sizeof(k) for k in key_types]
 		
 		#Make offsets into a running sum
-		self._offsets = np.cumsum(0+self._key_sizes)
+		key_sizes = [0] + key_sizes[:-1]
+		offsets = np.cumsum(key_sizes)
 		
+		self._offsets = collections.OrderedDict(zip(keys,offsets))
+		self._keys = collections.OrderedDict(zip(keys,key_types))
 		
-	def get(self,name,default=None):
+	def _up_ref(self):
+		try:
+			r = ctypes.c_void_p.in_dll(u._lib,self._mod_name)
+		except ValueError:
+			raise NotInLib 
+			
+		self._base_addr = ctypes.addressof(r)
+		#self._ref = ctypes.c_void_p.in_dll(u._lib,self._mod_name)
+           
+	def __getitem__(self,key):
+		x = self._get_ref(key)
+		return x.value
 		
-		if name in self.keys():
-			ind = self._keys.index(name)
-			offset = self._offsets[ind]
-			x_addr = self._base_addr + offset
-			x = self._key_types(base_addr=x_addr)
-		else
-			if default is not None:
-				x = default
-			else:
-				raise KeyError("Key "+str(name)+" not found")
+	def __setitem__(self,key,value):
+		x = self._get_ref(key)
+		x.value = value
 
+	def _get_ref(self,key):
+		if key not in self._keys:
+			raise KeyError("Key "+str(key)+" doesn't exist")
+			
+		if self._base_addr < 0:
+			raise ValueError("Must set base_addr")
+		
+		offset = self._offsets[key]
+		_ctype = self._keys[key]
+		x_addr = self._base_addr + offset
+		x = _ctype.from_address(int(x_addr))
 		return x
+		
+	def __delitem__(self,key):
+		pass
+		
+	def __iter__(self):
+		return iter(self._keys.keys())
+		
+	def __len__(self):
+		return len(self._keys)
+		
+	
 
 
 #from __future__ import print_function
