@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-2.0+
+
 cimport numpy as np
 import numpy as np
 

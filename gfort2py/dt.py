@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-2.0+
+
 import collections
 import utils as u
 import numpy as np

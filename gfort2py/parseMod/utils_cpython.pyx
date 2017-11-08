@@ -1,5 +1,4 @@
-
-
+# SPDX-License-Identifier: GPL-2.0+
 
 def split_brackets(value,remove_b=True):
     if isinstance(value,unicode):
