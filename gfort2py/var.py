@@ -416,7 +416,7 @@ class fSingle(fVar):
                 base_addr=-1,*args,**kwargs):
 
         cname = 'c_float'
-        pytpe = np.longdouble
+        pytpe = float
         super(fQuad, self).__init__(value=value,pointer=pointer,kind=4,
                                     param=param,name=name,base_addr=base_addr,
                                     cname=cname,pytype=pytype,
@@ -427,7 +427,7 @@ class fDouble(fVar):
                 base_addr=-1,*args,**kwargs):
 
         cname = 'c_double'
-        pytpe = np.longdouble
+        pytpe = float
         super(fQuad, self).__init__(value=value,pointer=pointer,kind=8,
                                     param=param,name=name,base_addr=base_addr,
                                     cname=cname,pytype=pytype,
