@@ -43,7 +43,7 @@ class fArray(var.fVar):
     _index_t = ctypes.c_int64
     _size_t = ctypes.c_int64
     
-    _array_keys = ['array_addr','offset','dtype','dims']
+    _array_keys = ['array_addr','offset','dtype']
     _array_types = [ctypes.c_void_p,_size_t,_index_t]
     
     _dims_keys = ['stride','lbound','ubound']

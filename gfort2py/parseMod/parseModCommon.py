@@ -500,7 +500,7 @@ class parseModBase(object):
             res = 'c_longdouble'
             pytype='quad'
         elif size == ctypes.sizeof(ctypes.c_longlong):
-            res = 'c_long'
+            res = 'c_longdouble'
             pytype='quad'
         else:
             raise ValueError("Cant find suitable float for size " + str(size))

@@ -41,7 +41,6 @@ setup(name='gfort2py',
 		    'Programming Language :: Python :: 3.6',
 		    'Programming Language :: Python :: 3.7',
 		    'Topic :: Software Development :: Code Generators',
-		    
       ],
       test_suite = 'tests',
       ext_modules=cythonize(ext),

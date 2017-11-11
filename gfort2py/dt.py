@@ -7,65 +7,77 @@ import ctypes
 
 
 class fDT(collections.MutableMapping):
-	def __init__(self,name=None,base_addr=-1,keys=[],key_sizes=[],key_types=[]):
-		self._name = name
-		self._base_addr = base_addr
-		
-		if self._name is not None:
-			self._mod_name = u._module + self._name
-			self._up_ref()
-			self._ref = None
-		
-		if len(key_sizes)==0:
-			key_sizes = [ctypes.sizeof(k) for k in key_types]
-		
-		#Make offsets into a running sum
-		key_sizes = [0] + key_sizes[:-1]
-		offsets = np.cumsum(key_sizes)
-		
-		self._offsets = collections.OrderedDict(zip(keys,offsets))
-		self._keys = collections.OrderedDict(zip(keys,key_types))
-		
-	def _up_ref(self):
-		try:
-			r = ctypes.c_void_p.in_dll(u._lib,self._mod_name)
-		except ValueError:
-			raise NotInLib 
-			
-		self._base_addr = ctypes.addressof(r)
-		#self._ref = ctypes.c_void_p.in_dll(u._lib,self._mod_name)
-           
-	def __getitem__(self,key):
-		x = self._get_ref(key)
-		return x.value
-		
-	def __setitem__(self,key,value):
-		x = self._get_ref(key)
-		x.value = value
+    def __init__(self,name=None,base_addr=-1,keys=[],key_sizes=[],key_types=[]):
+        self._name = name
+        self._base_addr = base_addr
+        
+        if self._name is not None:
+            self._up_ref()
+        
+        if len(key_sizes)==0:
+            key_sizes = [ctypes.sizeof(k) for k in key_types]
+        
+        #Make offsets into a running sum
+        key_sizes = [0] + key_sizes[:-1]
+        offsets = np.cumsum(key_sizes)
+        
+        self._offsets = collections.OrderedDict(zip(keys,offsets))
+        self._keys = collections.OrderedDict(zip(keys,key_types))
+        
+    def _up_ref(self):
+        try:
+            self._ref = ctypes.c_void_p.in_dll(u._lib,self._mod_name)
+            self._base_addr = ctypes.addressof(self._ref)
+        except ValueError:
+            raise NotInLib 
 
-	def _get_ref(self,key):
-		if key not in self._keys:
-			raise KeyError("Key "+str(key)+" doesn't exist")
-			
-		if self._base_addr < 0:
-			raise ValueError("Must set base_addr")
-		
-		offset = self._offsets[key]
-		_ctype = self._keys[key]
-		x_addr = self._base_addr + offset
-		x = _ctype.from_address(int(x_addr))
-		return x
-		
-	def __delitem__(self,key):
-		pass
-		
-	def __iter__(self):
-		return iter(self._keys.keys())
-		
-	def __len__(self):
-		return len(self._keys)
-		
-	
+    @property
+    def _mod_name(self):
+        res = ''
+        if self.name is not None:
+            return u._module + self.name
+        return res 
+        
+    @property    
+    def name(self):
+        return self._name
+        
+    @name.setter
+    def name(self,name):
+        self._name = str(name)
+        self._up_ref()
+
+    def __getitem__(self,key):
+        x = self._get_ref(key)
+        return x.value
+        
+    def __setitem__(self,key,value):
+        x = self._get_ref(key)
+        x.value = value
+
+    def _get_ref(self,key):
+        if key not in self._keys:
+            raise KeyError("Key "+str(key)+" doesn't exist")
+            
+        if self._base_addr < 0:
+            raise ValueError("Must set base_addr")
+        
+        offset = self._offsets[key]
+        _ctype = self._keys[key]
+        x_addr = self._base_addr + offset
+        x = _ctype.from_address(int(x_addr))
+        return x
+        
+    def __delitem__(self,key):
+        pass
+        
+    def __iter__(self):
+        return iter(self._keys.keys())
+        
+    def __len__(self):
+        return len(self._keys)
+        
+    
 
 
 #from __future__ import print_function

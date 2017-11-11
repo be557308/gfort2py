@@ -616,4 +616,14 @@ module tester
       end subroutine sub_use_mod
       
       
+      subroutine sub_test_dt_edit()
+
+         write(*,*) f_struct_simple%x,f_struct_simple%y
+      
+         f_struct_simple%x = 5
+         f_struct_simple%y = 6
+      
+      end subroutine sub_test_dt_edit
+      
+      
 end module tester
