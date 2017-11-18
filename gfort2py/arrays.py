@@ -2,22 +2,20 @@
 
 from __future__ import print_function
 import ctypes
-#from .var import fVar, fParam
+import collections
 import numpy as np
-#from .utils import *
 import fnumpy
-#from .errors import *
+from errors import *
 import dt
 import var
 import sys
+import utils as u
 
 
 if sys.byteorder is 'little':
-    _byte_order="<"
-else:
     _byte_order=">"
-
-
+else:
+    _byte_order="<"
 
 class fArray(var.fVar):
     _GFC_MAX_DIMENSIONS = 7
@@ -40,6 +38,15 @@ class fArray(var.fVar):
     _BT_VOID = _BT_HOLLERITH + 1
     _BT_ASSUMED = _BT_VOID + 1
     
+    _BT_TYPESPEC = {_BT_UNKNOWN:'v',_BT_INTEGER:'i',_BT_LOGICAL:'b',
+                    _BT_REAL:'g',_BT_COMPLEX:'c',_BT_DERIVED:'v',
+                    _BT_CHARACTER:'v',_BT_CLASS:'v',_BT_PROCEDURE:'v',
+                    _BT_HOLLERITH:'v',_BT_VOID:'v',_BT_ASSUMED:'v'}
+                    
+    _PY_TO_BT = {'int':_BT_INTEGER,'float':_BT_REAL,'bool':_BT_LOGICAL,
+                'str':_BT_CHARACTER,'bytes':_BT_CHARACTER
+                }
+
     _index_t = ctypes.c_int64
     _size_t = ctypes.c_int64
     
@@ -48,181 +55,183 @@ class fArray(var.fVar):
     
     _dims_keys = ['stride','lbound','ubound']
     _dims_types = [_index_t,_index_t,_index_t]
+    _boundsTuple = collections.namedtuple('_boundsTuple',_dims_keys)
     
-    def __init__(self,value=None,pointer=True,kind=-1,name=None,param=False,
+    def __init__(self,pointer=True,kind=-1,name=None,param=False,
                     base_addr=-1,cname=None,pytype=None,ctype=None,
-                    shape=None,ndim=None,
+                    shape=None,ndim=None,explicit=True,
                     *args,**kwargs):
     
-        if value is None and shape is None and nidms is None:
-            raise ValueError("Must set either value, shape or ndims")
+        if shape is None and ndim is None:
+            raise ValueError("Must set either shape or ndim")
             
     
         self._farray = None
-        self._pyarray = None  
+        self._value = None  
         self._shape = None
         self._ndim = None 
         self._pyalloc = False
-        self._falloc = False
-            
-        if value is not None:
-            if not isinstance(value,np.ndarray):
-                raise ValueError("Value must be a numpy array")
-            self._pyarray = value
-            self._shape = value.shape
-            self.ndim = value.ndim
-            self._pyalloc = True
-            base_addr = self._pyarray.ctypes.data
-                
+        self._name = None
+        self._value = None
+        self._explicit = explicit
+                            
         if shape is not None:
-            if not type(shape) in [list,tuple]:
-                raise ValueError("Shape must be a lit or tuple")
-            self._pyarray = np.zeros(shape)
-            self._shape = shape
+            print(shape)
+            if not hasattr(shape,'__iter__'):
+                raise ValueError("Shape must be an iterable")
+            self._shape = tuple(shape)
             self._ndims = len(shape)
-            self._pyalloc = True
-            base_addr = self._pyarray.ctypes.data
+            self._falloc = True
                 
         if ndim is not None:
-            if not type(shape) is int and ndim > 0:
-                raise ValueError("ndims int and > 0")
+            if ndim < 0:
+                raise ValueError("ndim must be > 0")
             self._ndim = ndim
             self._falloc = True
 
         if base_addr > 0:
             self._base_addr = base_addr
         else:
-            self._base_addr = None
+            self._base_addr = -1
+    
+        if self._explicit and self._shape is None:
+            raise ValueError("Explicit arrays must have thier shape set")
     
     
         self._pointer = pointer
         self._kind = kind
         self._name = name
-
         self._param = param
  
         self._cname = cname
         self._ctype = ctypes.c_void_p
         self._ctype_p = ctypes.c_void_p
-        
-        self._mod_name = None
-        if self._name is not None:
-            self._mod_name = u.module + self._name
-            
+                
         #python type of indivdual element
         self._pytype_s = pytype
         #ctype of a single element
         self._ctype_s = ctype
         
+        self._init_farray()
+        
+        if self.name is not None:
+            self._up_ref()
+    
+    def _init_farray(self):
         #Create storage area for fortran array:
         self._farray = dt.fDT(keys=self._create_keys(self._ndim),
-                              key_types=self._create_types(self._ndim)
+                              key_types=self._create_types(self._ndim),
                               base_addr=-1)
         
-
-    def _get(self):
-        #Two paths, either we only have _pyarray or we ned to get get the data
-        # from _farray
-        if self._farray.base_addr == -1:
-            #_farray not set 
-            return self._pyarray
-        else:
-            if self._mod_name is not None:
-                # This points to th first element of the array and itertaing
-                # on this gets us the array
-                array_addr = ctypes.c_void_p.in_dll(u._lib,self._mod_name)
-                # This is the addressof the whole array structure
-                # TODO: Check if this is the same for a fixed size array
-                self._base_addr = ctypes.addressof(array_addr)
-            
-            if self._base_addr < 0:
-                raise ValueError("Must set either the name or base_addr of array")
-
-            self._farray.base_addr = self._base_addr
-            self._farray['array_addr'] = array_addr
-            self._ndim, BT, size = self._split_dtype(self._farray['dtype'])
-            
-            self._shape = self._get_shape()
-            
-            self._farray.__array_interface__ = self._create_array_interface(
-                                            shape=self._shape,
-                                            typestr=self._BT_to_typestr(BT)+str(size),
-                                            data=self._farray['array_addr'],
-                                            strides=self._get_strides()
-                                            )
-            
-            self._pyarray = np.ctypeslib.as_array(self._farray['array_addr'])
-            fnumpy.remove_ownership(self._pyarray)
-            
-        return self._pyarray
+        self._farray.__array_interface__ = {
+                'shape': None,
+                'typestr': None,
+                'data': None,
+                'strides': None,
+                'version': 3, # Only use the latest version
+                }
         
-    def _set(self,value,base_addr=-1,name=None):
-        if self._param:
-            raise ValueError("Cant alter a parameter")
+    
+    @property
+    def value(self):
+        self._up_ref()
         
-        self._pyarray = value
-        self._shape = value.shape
-        self.ndim = value.ndim
-        self._pyalloc = True
-        base_addr = self._pyarray.ctypes.data
-        
-        if name is not None:
-            self._mod_name = u.module + name
-            array_addr = ctypes.c_void_p.in_dll(u._lib,self._mod_name)
-            base_addr = ctypes.addressof(array_addr)
-        
-        if base_addr > 0:
-            self._base_addr = base_addr
-            
         if self._base_addr < 0:
             raise ValueError("Must set either the name or base_addr of array")
         
+        if self._explicit:
+            #These are defined only by a pointer to the first element
+            BT = self._PY_TO_BT[str(self._pytype_s.__name__)]
+            size = ctypes.sizeof(self._ctype_s)
+            strides = tuple(int(np.product(self._shape[0:i])) for i,v in enumerate(self._shape))
+            #print("**",self._base_addr,self._farray['array_addr'],self._ref)
+            self._farray.__array_interface__['data'] = (self._base_addr,False)
+        else:            
+            self._ndim, BT, size = self._split_dtype(self._farray['dtype'])
+            self._shape = self._get_shape()
+            strides = self._get_strides()
+            self._farray.__array_interface__['data'] = (self._ref.value,False)
+            
         
+        self._farray.__array_interface__['shape'] = self._shape
+        self._farray.__array_interface__['typestr'] = self._BT_to_typestr(BT)+str(size)
+        self._farray.__array_interface__['strides'] = tuple(i*size for i in strides)
+        self._value = np.array(self._farray,copy=False)
+        fnumpy.remove_ownership(self._value)
+        self._falloc = True
+        self._pyalloc = False
         
+        return self._value
+       
+    @value.setter
+    def value(self,value):
+        # TODO: Add logic to deallocate the old array
+        if self._param:
+            raise ValueError("Cant alter a parameter")
         
-    def _create_array_interface(self,shape,typestr,data,strides,version=3):
-        return dict(
-                    'shape': shape
-                    'typestr': typestr
-                    'data': data
-                    'strides': strides
-                    'version': version
-                    )
+        self._value = value
+        fnumpy.remove_ownership(self._value)
+        self._shape = value.shape
+        self._ndim = value.ndim
+        self._pyalloc = True
+        
+        self._up_ref()
+        self._farray.__array_interface__ = self._value.__array_interface__
+        
+        self._farray['array_addr'] = self._farray.__array_interface__['data'][0]
+        
+        if self._explicit:
+            #self._base_addr = self._farray['array_addr']
+            self._ref = ctypes.c_void_p(self._farray['array_addr'])
+            self._base_addr = ctypes.addressof(self._ref)
+        else:
+            self._farray['dtype'] = self._create_dtype(ndim=self._ndim, 
+                                                   itemsize=ctypes.sizeof(self._ctype_s),
+                                                   ftype=str(self._pytype_s)
+                                                   )
+            self._set_bounds()
+        
         
     def _get_bounds(self):
         bounds = []
         for i in range(self._ndim):
-            bounds.append([self._farray['lbound'_+str(i)],
-                          self._farray['ubound'_+str(i)],
-                          self._farray['stride'_+str(i)],
-                          ])
+            bounds.append(self._boundsTuple(
+                          self._farray['stride_'+str(i)],
+                          self._farray['lbound_'+str(i)],
+                          self._farray['ubound_'+str(i)],
+                          ))
         return bounds
         
     def _get_shape(self):
         bounds = self._get_bounds()
         shape = []
         for i in bounds:
-            shape.append((1,i[1]-i[0]))
+            shape.append(i.ubound-i.lbound+1)
         
-        return shape
+        return tuple(shape) #__array_interface__ needs a tuple not a list
     
     def _get_strides(self):
         bounds = self._get_bounds()
         strides = []
         for i in bounds:
-            strides.append(i[2])
+            strides.append(i.stride)
         
-        return strides
+        return tuple(strides)
         
-        
-    #def _set(self,value):
-        #pass
+    def _set_bounds(self):
+        bounds = []
+        for i in range(self._ndim):
+            self._farray['lbound_'+str(i)] = 1
+            self._farray['ubound_'+str(i)] = self._value.shape[i]
+            self._farray['stride_'+str(i)] = int(np.product(self._value.shape[0:i]))
+
+
 
     def _create_dtype(self,ndim,itemsize,ftype):
         ftype=self._get_BT(ftype)
         d=ndim
         d=d|(ftype<<self._GFC_DTYPE_TYPE_SHIFT)
-        d=d|(itemsize*8)<<self._GFC_DTYPE_SIZE_SHIFT
+        d=d|int(itemsize)<<self._GFC_DTYPE_SIZE_SHIFT
         return d
     
     def _get_BT(self,ftype):
@@ -232,68 +241,74 @@ class fArray(var.fVar):
             BT=self._BT_REAL
         elif 'bool' in ftype:
             BT=self._BT_LOGICAL
-        elif 'str' in ftype:
+        elif 'str' in ftype or 'bytes' in ftype:
             BT=self._BT_CHARACTER
         else:
             raise ValueError("Cant match dtype, got "+ftype)
         return BT
         
-    def _BT_to_typestr(self,BT)
-        res=""
-        if self._BT_UNKNOWN == BT
-            res=='v'
-        elif self._BT_INTEGER == BT
-            res=='i'
-        elif self._BT_LOGICAL == BT
-            res=='b'
-        elif self._BT_REAL == BT
-            res=='f'
-        elif self._BT_COMPLEX == BT
-            res=='c'
-        elif self._BT_DERIVED == BT
-            res=='v'
-        elif self._BT_CHARACTER == BT
-            res=='v'
-        elif self._BT_CLASS == BT
-            res=='v'
-        elif self._BT_PROCEDURE == BT
-            res=='v'
-        elif self._BT_HOLLERITH== BT
-            res=='v'
-        elif self._BT_VOID == BT
-            res=='v'
-        elif self._BT_ASSUMED == BT
-            res=='v'
-        else:
-            raise AttributeError("Bad BT")
+    def _BT_to_typestr(self,BT):
+        try:
+            res = self._BT_TYPESPEC[BT]
+        except KeyError:
+            raise BadFortranArray("Bad BT value "+str(BT))
             
-        return res+_byte_order
+        return _byte_order+res
     
 
     def _split_dtype(self,dtype):
-        
         itemsize = dtype >> self._GFC_DTYPE_SIZE_SHIFT
         BT = (dtype >> self._GFC_DTYPE_TYPE_SHIFT ) & (self._GFC_DTYPE_RANK_MASK)
         ndim = dtype & self._GFC_DTYPE_RANK_MASK
         
-        return ndim,BT,int(itemsize/8)
+        return ndim,BT,int(itemsize)
 
-    def _array_names(names,ndim):
+    def _array_names(self,names,ndim):
         res = []
         for j in range(ndim):
             for i in names:
-                res.append(i+"_"+int(j))
+                res.append(str(i)+"_"+str(j))
         return res
     
     
-    def _create_keys(ndim):
-        return _array_keys+_array_names(_dims_keys,ndim)
+    def _create_keys(self,ndim):
+        return self._array_keys+self._array_names(self._dims_keys,ndim)
     
     
-    def _create_types(ndim):
-        return _array_types+_dims_types*ndim
+    def _create_types(self,ndim):
+        return self._array_types+self._dims_types*ndim
         
+    @property
+    def _mod_name(self):
+        res = ''
+        if self.name is not None:
+            return u._module + self.name
+        return res 
         
+    @property    
+    def name(self):
+        return self._name  
+        
+    @name.setter
+    def name(self,name):
+        self._name = str(name)
+        if not self._param:
+            self._up_ref()
+        else:
+            self._ref = None
+            self._base_addr = -1
+        
+    def _up_ref(self):
+        if self._base_addr < 0:
+            try:
+                self._ref = ctypes.c_void_p.in_dll(u._lib,self._mod_name)
+                self._base_addr = ctypes.addressof(self._ref)
+            except ValueError:
+                raise NotInLib 
+                
+        
+        self._farray._base_addr = self._base_addr
+        self._farray['array_addr'] = self._ref.value
         
 #####################################################################
 
