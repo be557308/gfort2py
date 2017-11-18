@@ -3,3 +3,5 @@
 class NotInLib(Exception):
     pass
 
+class BadFortranArray(Exception):
+	pass
