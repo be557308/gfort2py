@@ -3,50 +3,41 @@
 import collections
 import utils as u
 import numpy as np
+import var 
 import ctypes
 
 
-class fDT(collections.MutableMapping):
-    def __init__(self,name=None,base_addr=-1,keys=[],key_sizes=[],key_types=[]):
+class fDT(var.fVar):
+
+    _elem = collections.namedtuple('_elem',('offset','ctype'))
+    
+    def __init__(self,name=None,base_addr=-1,keys=[],key_sizes=[],key_types=[],
+                pointer=False,param=False):
         self._name = name
         self._base_addr = base_addr
+        self._pointer = pointer
+        self._param = param
         
+        self._kind = None
+        self._cname = 'c_void_p'
+        self._ctype = getattr(ctypes,self._cname)
+        self._ctype_p = ctypes.POINTER(self._ctype)
+        self._pytype = dict
+
         if self._name is not None:
-            self._up_ref()
+            self._up_ref()        
         
         if len(key_sizes)==0:
             key_sizes = [ctypes.sizeof(k) for k in key_types]
-        
+
         #Make offsets into a running sum
         key_sizes = [0] + key_sizes[:-1]
         offsets = np.cumsum(key_sizes)
         
-        self._offsets = collections.OrderedDict(zip(keys,offsets))
-        self._keys = collections.OrderedDict(zip(keys,key_types))
+        self._value={}
+        for i,j,k in zip(keys,offsets,key_types):
+            self._value[i]=self._elem(j,k)
         
-    def _up_ref(self):
-        try:
-            self._ref = ctypes.c_void_p.in_dll(u._lib,self._mod_name)
-            self._base_addr = ctypes.addressof(self._ref)
-        except ValueError:
-            raise NotInLib 
-
-    @property
-    def _mod_name(self):
-        res = ''
-        if self.name is not None:
-            return u._module + self.name
-        return res 
-        
-    @property    
-    def name(self):
-        return self._name
-        
-    @name.setter
-    def name(self,name):
-        self._name = str(name)
-        self._up_ref()
-
     def __getitem__(self,key):
         x = self._get_ref(key)
         return x.value
@@ -56,28 +47,35 @@ class fDT(collections.MutableMapping):
         x.value = value
 
     def _get_ref(self,key):
-        if key not in self._keys:
+        if key not in self._value:
             raise KeyError("Key "+str(key)+" doesn't exist")
             
         if self._base_addr < 0:
             raise ValueError("Must set base_addr")
         
-        offset = self._offsets[key]
-        _ctype = self._keys[key]
-        x_addr = self._base_addr + offset
-        x = _ctype.from_address(int(x_addr))
+        x_addr = self._base_addr + self._value[key].offset
+        x = self._value[key].ctype.from_address(int(x_addr))
         return x
         
     def __delitem__(self,key):
         pass
         
     def __iter__(self):
-        return iter(self._keys.keys())
+        return self._value.__iter__()
         
     def __len__(self):
-        return len(self._keys)
+        return self._value.__len__()
         
-    
+
+    @property
+    def value(self):
+        return list(self._value.keys())
+
+    def __dir__(self):
+        return self.value
+
+    def _ipython_key_completions_(self):
+        return self.value
 
 
 #from __future__ import print_function
