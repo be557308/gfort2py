@@ -120,7 +120,7 @@ class fVar(object):
             self._value[i] = self._ctype.from_address(offset).value
         
         
-    # _get() should allways return a python type so we overload and let
+    # self.value should allways be a python type so we overload and let
     # the python types __X__ functions act    
     
     def __add__(self,x):
@@ -475,7 +475,7 @@ class fChar(fVar):
         cname = 'c_char'
         pytype = bytes
         if length < 0:
-            raise ValueError("Must set max length of the character")
+            raise ValueError("Must set max length of the character string")
         else:
             self._length = length
         super(fChar, self).__init__(pointer=pointer,kind=length,

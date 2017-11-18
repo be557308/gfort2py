@@ -70,6 +70,10 @@ class fDT(var.fVar):
     @property
     def value(self):
         return list(self._value.keys())
+        
+    @value.setter
+    def value(self,value):
+        pass
 
     def __dir__(self):
         return self.value
