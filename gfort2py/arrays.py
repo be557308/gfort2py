@@ -44,8 +44,7 @@ class fArray(var.fVar):
                     _BT_HOLLERITH:'v',_BT_VOID:'v',_BT_ASSUMED:'v'}
                     
     _PY_TO_BT = {'int':_BT_INTEGER,'float':_BT_REAL,'bool':_BT_LOGICAL,
-                'str':_BT_CHARACTER,'bytes':_BT_CHARACTER
-                }
+                'str':_BT_CHARACTER,'bytes':_BT_CHARACTER}
 
     _index_t = ctypes.c_int64
     _size_t = ctypes.c_int64
@@ -55,7 +54,7 @@ class fArray(var.fVar):
     
     _dims_keys = ['stride','lbound','ubound']
     _dims_types = [_index_t,_index_t,_index_t]
-    _boundsTuple = collections.namedtuple('_boundsTuple',_dims_keys)
+    _bounds = collections.namedtuple('_bounds',_dims_keys)
     
     def __init__(self,pointer=True,kind=-1,name=None,param=False,
                     base_addr=-1,cname=None,pytype=None,ctype=None,
@@ -139,24 +138,34 @@ class fArray(var.fVar):
         if self._base_addr < 0:
             raise ValueError("Must set either the name or base_addr of array")
         
+        if self._ref.value is None:
+            raise ArrayNotAllocated("Array hasn't been allocated yet")
+        
+        
         if self._explicit:
             #These are defined only by a pointer to the first element
             BT = self._PY_TO_BT[str(self._pytype_s.__name__)]
             size = ctypes.sizeof(self._ctype_s)
+
             strides = tuple(int(np.product(self._shape[0:i])) for i,v in enumerate(self._shape))
-            #print("**",self._base_addr,self._farray['array_addr'],self._ref)
             self._farray.__array_interface__['data'] = (self._base_addr,False)
+            
         else:            
             self._ndim, BT, size = self._split_dtype(self._farray['dtype'])
             self._shape = self._get_shape()
             strides = self._get_strides()
             self._farray.__array_interface__['data'] = (self._ref.value,False)
             
-        
         self._farray.__array_interface__['shape'] = self._shape
         self._farray.__array_interface__['typestr'] = self._BT_to_typestr(BT)+str(size)
-        self._farray.__array_interface__['strides'] = tuple(i*size for i in strides)
+        if self._ndim > 1:
+            self._farray.__array_interface__['strides'] = tuple(i*size for i in strides)
+        else:
+            self._farray.__array_interface__['strides'] = None
+        
+        print(self._farray.__array_interface__)
         self._value = np.array(self._farray,copy=False)
+        print("*",self._value)
         fnumpy.remove_ownership(self._value)
         self._falloc = True
         self._pyalloc = False
@@ -175,27 +184,29 @@ class fArray(var.fVar):
         self._ndim = value.ndim
         self._pyalloc = True
         
-        self._up_ref()
+        #self._up_ref()
         self._farray.__array_interface__ = self._value.__array_interface__
         
-        self._farray['array_addr'] = self._farray.__array_interface__['data'][0]
-        
-        if self._explicit:
-            #self._base_addr = self._farray['array_addr']
-            self._ref = ctypes.c_void_p(self._farray['array_addr'])
-            self._base_addr = ctypes.addressof(self._ref)
-        else:
+        # This misses the first 8 bytes
+        #self._base_addr = self._farray.__array_interface__['data'][0]
+        # This sets only the first 8 bytes
+        #ctypes.memmove(self._base_addr,self._value.ctypes.data, ctypes.sizeof(ctypes.c_void_p))
+       
+       
+        if not self._explicit:
             self._farray['dtype'] = self._create_dtype(ndim=self._ndim, 
                                                    itemsize=ctypes.sizeof(self._ctype_s),
                                                    ftype=str(self._pytype_s)
                                                    )
             self._set_bounds()
+        print(self._farray.__array_interface__)
+        
         
         
     def _get_bounds(self):
         bounds = []
         for i in range(self._ndim):
-            bounds.append(self._boundsTuple(
+            bounds.append(self._bounds(
                           self._farray['stride_'+str(i)],
                           self._farray['lbound_'+str(i)],
                           self._farray['ubound_'+str(i)],

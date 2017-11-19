@@ -5,3 +5,6 @@ class NotInLib(Exception):
 
 class BadFortranArray(Exception):
 	pass
+
+class ArrayNotAllocated(Exception):
+	pass
