@@ -80,7 +80,12 @@ class fDT(var.fVar):
 
     def _ipython_key_completions_(self):
         return self.value
-
+        
+    def __contains__(self,key):
+        return key in self._value
+        
+    def keys(self):
+        return self._value.keys()
 
 #from __future__ import print_function
 #import ctypes
