@@ -12,6 +12,9 @@ from errors import *
 import utils as u
 
 
+class _empty(object):
+    pass
+
 class fVar(object):
     def __init__(self,pointer=True,kind=-1,name=None,
                     base_addr=-1,cname=None,pytype=None,param=False,
@@ -73,14 +76,6 @@ class fVar(object):
             raise NotInLib 
         
     @property
-    def _as_parameter_(self):
-        return self._ctype_p(self._ctype(self._get()))
-        
-    @property
-    def from_param(self):
-        return self._ctype
-
-    @property
     def value(self):
         if self._base_addr > 0:
             x = self._ctype.from_address(self._base_addr).value
@@ -101,8 +96,12 @@ class fVar(object):
             elif self._ref is not None:
                 x = self._ref
             else:
-                raise ValueError("Value not mapped to fortran")        
-            x.value = self._pytype(value)
+                x = _empty()
+                #raise ValueError("Value not mapped to fortran")   
+            if value is not None:
+                x.value = self._pytype(value)
+            else:
+                x.value = None
             self._value = x.value
         else:
             raise AttributeError("Can not alter a parameter")
@@ -397,12 +396,6 @@ class fSingleCmplx(fVar):
         
         self._length = 2
         self._value = self._pytype(0.0)
-
-    @property
-    def _as_parameter_(self):
-        x = self._get()
-        y = ctypes._ctype(x.real,x.imag)
-        return self._ctype_p(y)
     
     @property
     def value(self,new=True):
@@ -437,12 +430,6 @@ class fDoubleCmplx(fVar):
         
         self._length = 2
         self._value = self._pytype(0.0)
-
-    @property
-    def _as_parameter_(self):
-        x = self._get()
-        y = ctypes._ctype(x.real,x.imag)
-        return self._ctype_p(y)
 
     @property
     def value(self,new=True):
@@ -507,7 +494,7 @@ class fChar(fVar):
         else:
             raise AttributeError("Can not alter a parameter")        
         
-        #Truncate and possibblt pad string to fit inside the max length of the character
+        #Truncate and possibbly pad string to fit inside the max length of the character
         value = value[0:self._length].ljust(self._length)
         
         try:
