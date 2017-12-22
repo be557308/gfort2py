@@ -16,16 +16,16 @@ class _empty(object):
     pass
 
 class fVar(object):
-    def __init__(self,pointer=True,kind=-1,name=None,
+    def __init__(self,pointer=True,name=None,mangled_name=None,
                     base_addr=-1,cname=None,pytype=None,param=False,
-                    *args,**kwargs):
+                    **kwargs):
         
         self._value = None
         self._pointer = pointer
-        self._kind = kind
         self._name = name
         self._base_addr = base_addr
         self._param = param
+        self._mangled_name = mangled_name
         
         self._cname = cname
         self._ctype = getattr(ctypes,cname)
@@ -40,8 +40,8 @@ class fVar(object):
     @property
     def _mod_name(self):
         res = ''
-        if self.name is not None:
-            return u._module + self.name
+        if self._mangled_name is not None:
+            return self._mangled_name
         return res 
         
     @property    
@@ -311,72 +311,100 @@ class fVar(object):
     def __hash__(self):
         raise NotImplemented
 
+def _cleanDict(d):
+    for i in ['pointer','param','name','cname','pytype']:
+        try:
+            del d[i]
+        except KeyError:
+            pass
+    return d
 
 class fInt(fVar):
 
-    def __init__(self,pointer=True,kind=4,param=False,name=None,
-                base_addr=-1,*args,**kwargs):
+    def __init__(self,pointer=True,param=False,name=None,mangled_name=None,
+                base_addr=-1,**kwargs):
                     
-        cname = 'c_int'+str(kind*8)
+        cname = 'c_int32'
         pytype = int
-        super(fInt, self).__init__(pointer=pointer,kind=kind,
+        kwargs = _cleanDict(kwargs)
+        super(fInt, self).__init__(pointer=pointer,mangled_name=mangled_name,
                                     param=param,name=name,base_addr=base_addr,
                                     cname=cname,pytype=pytype,
-                                    *args,**kwargs)
+                                    **kwargs)
+                                    
+        self._value = self._pytype(0.0)
+        
+class fLongInt(fVar):
+
+    def __init__(self,pointer=True,param=False,name=None,mangled_name=None,
+                base_addr=-1,**kwargs):
+                    
+        cname = 'c_int64'
+        pytype = int
+        kwargs = _cleanDict(kwargs)
+        super(fInt, self).__init__(pointer=pointer,mangled_name=mangled_name,
+                                    param=param,name=name,base_addr=base_addr,
+                                    cname=cname,pytype=pytype,
+                                    **kwargs)
                                     
         self._value = self._pytype(0.0)
     
+    
         
 class fSingle(fVar):
-   def __init__(self,pointer=True,param=False,name=None,
-                base_addr=-1,*args,**kwargs):
+   def __init__(self,pointer=True,param=False,name=None,mangled_name=None,
+                base_addr=-1,**kwargs):
 
         cname = 'c_float'
         pytype = float
-        super(fSingle, self).__init__(pointer=pointer,kind=4,
+        kwargs = _cleanDict(kwargs)
+        super(fSingle, self).__init__(pointer=pointer,mangled_name=mangled_name,
                                     param=param,name=name,base_addr=base_addr,
                                     cname=cname,pytype=pytype,
-                                    *args,**kwargs)
+                                    **kwargs)
                                     
         self._value = self._pytype(0.0)
         
 class fDouble(fVar):
-   def __init__(self,pointer=True,param=False,name=None,
-                base_addr=-1,*args,**kwargs):
+   def __init__(self,pointer=True,param=False,name=None,mangled_name=None,
+                base_addr=-1,**kwargs):
 
         cname = 'c_double'
         pytype = float
-        super(fDouble, self).__init__(pointer=pointer,kind=8,
+        kwargs = _cleanDict(kwargs)
+        super(fDouble, self).__init__(pointer=pointer,mangled_name=mangled_name,
                                     param=param,name=name,base_addr=base_addr,
                                     cname=cname,pytype=pytype,
-                                    *args,**kwargs)
+                                    **kwargs)
                                     
         self._value = self._pytype(0.0)
         
 class fQuad(fVar):
-   def __init__(self,pointer=True,param=False,name=None,
-                base_addr=-1,*args,**kwargs):
+   def __init__(self,pointer=True,param=False,name=None,mangled_name=None,
+                base_addr=-1,**kwargs):
 
         cname = 'c_longdouble'
         pytype = np.longdouble
-        super(fQuad, self).__init__(pointer=pointer,kind=16,
+        kwargs = _cleanDict(kwargs)
+        super(fQuad, self).__init__(pointer=pointer,mangled_name=mangled_name,
                                     param=param,name=name,base_addr=base_addr,
                                     cname=cname,pytype=pytype,
-                                    *args,**kwargs)
+                                    **kwargs)
                                     
         self._value = self._pytype(0.0)
 
         
 class fLogical(fVar):
-   def __init__(self,pointer=True,param=False,name=None,
-                base_addr=-1,*args,**kwargs):
+   def __init__(self,pointer=True,param=False,name=None,mangled_name=None,
+                base_addr=-1,**kwargs):
 
-        cname = 'c_bool'
+        cname = 'c_int32'
         pytype = bool
-        super(fLogical, self).__init__(pointer=pointer,kind=kind,
+        kwargs = _cleanDict(kwargs)
+        super(fLogical, self).__init__(pointer=pointer,mangled_name=mangled_name,
                                     param=param,name=name,base_addr=base_addr,
                                     cname=cname,pytype=pytype,
-                                    *args,**kwargs)
+                                    **kwargs)
                                     
         self._value = self._pytype(0)
         
@@ -384,15 +412,16 @@ class fLogical(fVar):
         
         
 class fSingleCmplx(fVar):
-    def __init__(self,pointer=True,param=False,name=None,
-                base_addr=-1,*args,**kwargs):
+    def __init__(self,pointer=True,param=False,name=None,mangled_name=None,
+                base_addr=-1,**kwargs):
 
         cname = 'c_float'*2
         pytype = complex
-        super(fSingleCmplx, self).__init__(pointer=pointer,kind=2*4,
+        kwargs = _cleanDict(kwargs)
+        super(fSingleCmplx, self).__init__(pointer=pointer,mangled_name=mangled_name,
                                     param=param,name=name,base_addr=base_addr,
                                     cname=cname,pytype=pytype,
-                                    *args,**kwargs)
+                                    **kwargs)
         
         self._length = 2
         self._value = self._pytype(0.0)
@@ -418,15 +447,16 @@ class fSingleCmplx(fVar):
         self._set_from_buffer()
         
 class fDoubleCmplx(fVar):
-    def __init__(self,pointer=True,param=False,name=None,
-                base_addr=-1,*args,**kwargs):
+    def __init__(self,pointer=True,param=False,name=None,mangled_name=None,
+                base_addr=-1,**kwargs):
 
         cname = 'c_double'*2
         pytype = complex
-        super(fDoubleCmplx, self).__init__(pointer=pointer,kind=2*8,
+        kwargs = _cleanDict(kwargs)
+        super(fDoubleCmplx, self).__init__(pointer=pointer,mangled_name=mangled_name,
                                     param=param,name=name,base_addr=base_addr,
                                     cname=cname,pytype=pytype,
-                                    *args,**kwargs)
+                                    **kwargs)
         
         self._length = 2
         self._value = self._pytype(0.0)
@@ -456,19 +486,20 @@ class fDoubleCmplx(fVar):
    
 
 class fChar(fVar):
-    def __init__(self,pointer=True,param=False,name=None,length=-1,
-                base_addr=-1,*args,**kwargs):
+    def __init__(self,pointer=True,param=False,name=None,length=-1,mangled_name=None,
+                base_addr=-1,**kwargs):
                     
         cname = 'c_char'
         pytype = bytes
+        kwargs = _cleanDict(kwargs)
         if length < 0:
             raise ValueError("Must set max length of the character string")
         else:
             self._length = length
-        super(fChar, self).__init__(pointer=pointer,kind=length,
+        super(fChar, self).__init__(pointer=pointer,mangled_name=mangled_name,
                                     param=param,name=name,base_addr=base_addr,
                                     cname=cname,pytype=pytype,
-                                    *args,**kwargs)
+                                    **kwargs)
         
         self._value = self._pytype(b'')
         

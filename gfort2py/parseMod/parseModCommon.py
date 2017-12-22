@@ -27,13 +27,13 @@ class parseModBase(object):
         self.mod_data = res
         self.PYFILE_VERSION = PYFILE_VERSION
         
-        self.funcs=[]
-        self.mod_vars=[]
-        self.param=[]
-        self.dt_defs=[]
+        self.funcs={}
+        self.mod_vars={}
+        self.param={}
+        self.dt_defs={}
         self.dt_defines=[]
         self._unpacked=False
-
+    
     def processData(self):
         self.data = split_brackets(self.data)
         
@@ -56,7 +56,7 @@ class parseModBase(object):
         self.data=None
         
         self.unpackData()
-
+    
     def save(self,output):
         if not self._unpacked:
             self.unpackData()
@@ -64,8 +64,8 @@ class parseModBase(object):
         self.pickler(output, self.PYFILE_VERSION, 
                     self.mod_data, self.mod_vars, self.param, 
                     self.funcs, self.dt_defs)
-
- 
+    
+    
     def pickler(self,filename, *args):   
         with open(filename, 'wb') as f:
             for i in args:
@@ -75,14 +75,20 @@ class parseModBase(object):
         self._unpacked = True
         
         for i in self.all_symbols:
-            if 'proc' in i:
-                self.funcs.append(i)
-            elif 'var' in i:
-                self.mod_vars.append(i)
-            elif 'param' in i:
-                self.param.append(i)
-            elif 'dt_def' in i:
-                self.dt_defs.append(i)
+            if len(i):
+                try:
+                    name = i['name']
+                except KeyError:
+                    print(i)
+                    name = i['mangled_name']
+                if 'proc' in i:
+                    self.funcs[name] = i
+                elif 'var' in i and 'func_arg' not in i:
+                    self.mod_vars[name] = i
+                elif 'param' in i:
+                    self.param[name] = i
+                elif 'dt_def' in i:
+                    self.dt_defs[name] = i
                 
     def getUnpackedData(self):
         if not self._unpacked:
@@ -150,7 +156,7 @@ class parseModBase(object):
         
     def parseAllEqv(self):
         x = self.data[4]
-
+    
     def parseAllNameSymbols(self):
         x = self.data[7]
         x = x[0].split()
@@ -173,12 +179,12 @@ class parseModBase(object):
     def parseSymbol(self,symbol):
         symbol = symbol.strip()
         #things to skip
-
+    
         if ('__' in symbol or '(intrinsic)' in symbol or 
             'INTRINSIC' in symbol or len(symbol)==0 or
             ' RESULT' in symbol or 'BODY' in symbol):
             return {}
-
+    
         r = {}
         r['num'], r['name'],r['module'], _, r['parent_id']  =  symbol.split()[0:5]
         
@@ -227,13 +233,13 @@ class parseModBase(object):
         r['mangled_name']=self.mangleName(r)
             
         r.pop('info')
-
+    
         return r 
         
        
     def parseVar(self,info):
         res={}
-
+    
         type_info = info[2]
         symbol_info = info[0]
         p, c, s=self.getVarType(type_info)
@@ -260,7 +266,7 @@ class parseModBase(object):
             res['optional']=True
         if 'DUMMY' in symbol_info:
             res['intent'] = self.parseIntent(symbol_info)
-
+    
         return res
         
     def parseProc(self,info):
@@ -346,8 +352,8 @@ class parseModBase(object):
             res['array']=True
         
         return res
-
-
+    
+    
     def getVarType(self,x):
         x=x.strip()
         if x.startswith('('):
@@ -377,7 +383,7 @@ class parseModBase(object):
                 p = self.parseSingleParam(y,typ) 
             
         return p
-
+    
     def parseSingleParam(self,x,typ):
         if '@' in x:
             return hextofloat(x)
@@ -421,7 +427,7 @@ class parseModBase(object):
         except ValueError:
             # Sometimes we cant know the size till run time
             return -1
- 
+    
     def getStrLen(self, info):
         # Horrible but easier than splitting the nested brackets
         y=info[2].split("'")[1:-1:2]
@@ -436,7 +442,7 @@ class parseModBase(object):
         p, c, s=self.getVarType(info[2])
         return self.matchDtDef(int(s))
     
-
+    
     def getTypes(self,x,size):
         if 'CHARACTER' in x:
             pytype='str'
@@ -451,7 +457,7 @@ class parseModBase(object):
             pytype='complex'
         elif 'LOGICAL' in x:
             pytype='bool'
-            ctype='c_bool'
+            ctype='c_int'
         elif 'UNKNOWN' in x:
             pytype='None'
             ctype='c_void_p'
@@ -517,14 +523,14 @@ class parseModBase(object):
         elif ' UNKNOWN-INTENT ' in info:
             value = 'na'
         return value
-
+    
     def matchDtDef(self,num):
         for i in self.dt_defines:
             if int(num) == int(i['num']):
                 return i
         
         print("Cant match dt definition "+str(num))
- 
+    
     def matchFuncArgs(self):
         ind_funcs=[]
         ind_func_args=[]
@@ -539,21 +545,22 @@ class parseModBase(object):
             if 'func_arg' in i:
                 ind_func_args.append(idx)
                 func_arg_num.append(int(i['parent_id']))
-
+    
         s_f = np.argsort(func_nums,kind='heapsort')
-
+    
         sorted_index = np.searchsorted(func_nums,func_arg_num,sorter=s_f,side='left')
                 
         lenfn=len(s_f)
         # Things with index greater than the length of the function nums are
         # arguments to functions that are argument to funcs
         sorted_index = [i if i<lenfn else None for i in sorted_index]
-
+    
         for i,j in zip(sorted_index,ind_func_args):
             if i is not None:
                 fAind=s_f[i]
                 self.all_symbols[ind_funcs[fAind]]['arg'].append(self.all_symbols[j])
         
-
-
-
+    
+    
+    
+    

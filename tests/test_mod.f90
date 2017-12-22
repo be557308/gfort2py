@@ -43,6 +43,7 @@ module tester
       complex           :: a_cmplx
       complex(dp)       :: a_cmplx_dp
       complex(qp)       :: a_cmplx_qp
+      logical           :: a_log
       
       ! Variables
       integer           :: aa_int=2

@@ -7,7 +7,7 @@ import pickle
 import sys
 import subprocess
 
-PYFILE_VERSION = 1
+PYFILE_VERSION = 2
 
 class VersionError(Exception):
     pass
