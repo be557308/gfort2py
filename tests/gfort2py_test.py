@@ -50,7 +50,7 @@ def captured_output():
 class TestStringMethods(unittest.TestCase):
 	
 	def test_mising_var(self):	
-		with self.assertRaises(AttributeError) as cm:
+		with self.assertRaises(KeyError) as cm:
 			a=x.invalid_var
 	
 	def test_a_str(self):
@@ -104,7 +104,7 @@ class TestStringMethods(unittest.TestCase):
 		self.assertEqual(x.const_real_qp,1.0)
 
 	def test_const_int_arr_error(self):	
-		with self.assertRaises(ValueError) as cm:
+		with self.assertRaises(AttributeError) as cm:
 			x.const_int_arr='abc'
 		
 	def test_const_int_arr(self):	

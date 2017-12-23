@@ -249,7 +249,7 @@ class parseModBase(object):
         res['bytes'] = s
         
         if res['pytype'] == 'str':
-            res['len'] = self.getStrLen(info)
+            res['length'] = self.getStrLen(info)
         
         if 'DIMENSION' in symbol_info:
             #Array

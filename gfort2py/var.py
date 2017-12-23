@@ -510,6 +510,47 @@ class fDoubleCmplx(fVar):
         self._value = self._pytype(value)
         
         self._set_from_buffer()
+        
+class fQuadCmplx(fVar):
+    def __init__(self,pointer=True,param=False,name=None,mangled_name=None,
+                base_addr=-1,**kwargs):
+
+        cname = 'c_longdouble'*2
+        pytype = complex
+        kwargs = _cleanDict(kwargs)
+        super(fQuadCmplx, self).__init__(pointer=pointer,mangled_name=mangled_name,
+                                    param=param,name=name,base_addr=base_addr,
+                                    cname=cname,pytype=pytype,
+                                    **kwargs)
+        
+        self._length = 2
+        if 'value' in kwargs:
+             self._value = self._pytype(kwargs['value'])
+        else:
+            self._value = self._pytype(0.0)
+
+    @property
+    def value(self,new=True):
+        if self._base_addr > 0:
+            x = self._get_from_buffer(self._base_addr)
+        else:
+            x = [self._value.real,self._value.imag]
+            
+        self._value = self._pytype(x[0],x[1])
+
+        return self._value
+        
+    @value.setter
+    def value(self,value):
+        if not self._param:
+            if self._base_addr < 0:
+                raise ValueError("Value not mapped to fortran")   
+        else:
+            raise AttributeError("Can not alter a parameter")
+        
+        self._value = self._pytype(value)
+        
+        self._set_from_buffer()
    
 
 class fChar(fVar):

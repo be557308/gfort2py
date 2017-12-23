@@ -28,9 +28,12 @@ _map2ctype = {
             'c_int64int':var.fLongInt,
             'c_floatfloat':var.fSingle,
             'c_doublefloat':var.fDouble,
-            'c_longdoublefloat':var.fQuad,
+            'c_longdoublequad':var.fQuad,
             'c_char_pstr':var.fChar,
-            'c_intbool':var.fLogical
+            'c_intbool':var.fLogical,
+            'c_floatcomplex':var.fSingleCmplx,
+            'c_doublecomplex':var.fDoubleCmplx,
+            'c_longdoublecomplex':var.fQuadCmplx
 }
 
 def _map2gf(x):
