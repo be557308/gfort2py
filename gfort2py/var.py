@@ -8,8 +8,9 @@ except ImportError:
 
 import ctypes
 import numpy as np
-from errors import *
-import utils as u
+
+from .errors import *
+from . import utils as u
 
 
 class _empty(object):
@@ -19,7 +20,8 @@ class fVar(object):
     def __init__(self,pointer=True,name=None,mangled_name=None,
                     base_addr=-1,cname=None,pytype=None,param=False,
                     **kwargs):
-        
+                        
+
         self._value = None
         self._pointer = pointer
         self._name = name
@@ -69,11 +71,12 @@ class fVar(object):
             self._base_addr = -1
         
     def _up_ref(self):
-        try:
-            self._ref = self._ctype.in_dll(u._lib,self._mod_name)
-            self._base_addr = ctypes.addressof(self._ref)
-        except ValueError:
-            raise NotInLib 
+        if not self._param:
+            try:
+                self._ref = self._ctype.in_dll(u._lib,self._mod_name)
+                self._base_addr = ctypes.addressof(self._ref)
+            except ValueError:
+                raise NotInLib 
         
     @property
     def value(self):
@@ -261,25 +264,25 @@ class fVar(object):
         return self.value.__format__()
         
     def __lt__(self,x):
-        return self.value.__lt__()
+        return self.value.__lt__(x)
         
     def __le__(self,x):
-        return self.value.__le__()
+        return self.value.__le__(x)
         
     def __gt__(self,x):
-        return self.value.__gt__()
+        return self.value.__gt__(x)
         
     def __ge__(self,x):
-        return self.value.__ge__()
+        return self.value.__ge__(x)
         
     def __eq__(self,x):
-        return self.value.__eq__()
+        return self.value.__eq__(x)
         
     def __ne__(self,x):
-        return self.value.__ne__()
+        return self.value.__ne__(x)
 
     def __bool__(self):
-        return self.value.__bool__()
+        return self.value.__bool__(x)
 
     def __neg__(self):
         return self.value.__neg__()
@@ -331,8 +334,11 @@ class fInt(fVar):
                                     param=param,name=name,base_addr=base_addr,
                                     cname=cname,pytype=pytype,
                                     **kwargs)
-                                    
-        self._value = self._pytype(0.0)
+                             
+        if 'value' in kwargs:
+             self._value = self._pytype(kwargs['value'])
+        else:
+            self._value = self._pytype(0)
         
 class fLongInt(fVar):
 
@@ -347,7 +353,10 @@ class fLongInt(fVar):
                                     cname=cname,pytype=pytype,
                                     **kwargs)
                                     
-        self._value = self._pytype(0.0)
+        if 'value' in kwargs:
+             self._value = self._pytype(kwargs['value'])
+        else:
+            self._value = self._pytype(0.0)
     
     
         
@@ -363,7 +372,10 @@ class fSingle(fVar):
                                     cname=cname,pytype=pytype,
                                     **kwargs)
                                     
-        self._value = self._pytype(0.0)
+        if 'value' in kwargs:
+             self._value = self._pytype(kwargs['value'])
+        else:
+            self._value = self._pytype(0.0)
         
 class fDouble(fVar):
    def __init__(self,pointer=True,param=False,name=None,mangled_name=None,
@@ -377,7 +389,10 @@ class fDouble(fVar):
                                     cname=cname,pytype=pytype,
                                     **kwargs)
                                     
-        self._value = self._pytype(0.0)
+        if 'value' in kwargs:
+             self._value = self._pytype(kwargs['value'])
+        else:
+            self._value = self._pytype(0.0)
         
 class fQuad(fVar):
    def __init__(self,pointer=True,param=False,name=None,mangled_name=None,
@@ -391,7 +406,10 @@ class fQuad(fVar):
                                     cname=cname,pytype=pytype,
                                     **kwargs)
                                     
-        self._value = self._pytype(0.0)
+        if 'value' in kwargs:
+             self._value = self._pytype(kwargs['value'])
+        else:
+            self._value = self._pytype(0.0)
 
         
 class fLogical(fVar):
@@ -406,7 +424,10 @@ class fLogical(fVar):
                                     cname=cname,pytype=pytype,
                                     **kwargs)
                                     
-        self._value = self._pytype(0)
+        if 'value' in kwargs:
+             self._value = self._pytype(kwargs['value'])
+        else:
+            self._value = self._pytype(0)
         
     
         
@@ -424,7 +445,10 @@ class fSingleCmplx(fVar):
                                     **kwargs)
         
         self._length = 2
-        self._value = self._pytype(0.0)
+        if 'value' in kwargs:
+             self._value = self._pytype(kwargs['value'])
+        else:
+            self._value = self._pytype(0.0)
     
     @property
     def value(self,new=True):
@@ -459,7 +483,10 @@ class fDoubleCmplx(fVar):
                                     **kwargs)
         
         self._length = 2
-        self._value = self._pytype(0.0)
+        if 'value' in kwargs:
+             self._value = self._pytype(kwargs['value'])
+        else:
+            self._value = self._pytype(0.0)
 
     @property
     def value(self,new=True):
@@ -492,16 +519,25 @@ class fChar(fVar):
         cname = 'c_char'
         pytype = bytes
         kwargs = _cleanDict(kwargs)
-        if length < 0:
-            raise ValueError("Must set max length of the character string")
-        else:
-            self._length = length
+
         super(fChar, self).__init__(pointer=pointer,mangled_name=mangled_name,
                                     param=param,name=name,base_addr=base_addr,
                                     cname=cname,pytype=pytype,
                                     **kwargs)
         
-        self._value = self._pytype(b'')
+        if 'value' in kwargs:
+             self._value = self._pytype(kwargs['value'].encode())
+        else:
+            self._value = self._pytype(b'')
+
+
+        if self._param:
+            self._length = len(self._value)
+        elif length < 0:
+            raise ValueError("Must set max length of the character string")
+        else:
+            self._length = length
+
         
     @property
     def value(self):

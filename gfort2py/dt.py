@@ -1,22 +1,24 @@
 # SPDX-License-Identifier: GPL-2.0+
 
 import collections
-import utils as u
 import numpy as np
-import var 
 import ctypes
 
+from . import var 
+from . import utils as u
 
 class fDT(var.fVar):
 
     _elem = collections.namedtuple('_elem',('offset','ctype'))
     
     def __init__(self,name=None,base_addr=-1,keys=[],key_sizes=[],key_types=[],
-                pointer=False,param=False):
+                pointer=False,param=False,mangled_name=None,**kwargs):
+					
         self._name = name
         self._base_addr = base_addr
         self._pointer = pointer
         self._param = param
+        self._mangled_name = mangled_name
         
         self._kind = None
         self._cname = 'c_void_p'

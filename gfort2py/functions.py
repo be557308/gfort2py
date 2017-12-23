@@ -13,13 +13,8 @@ import select
 import collections
 import itertools
 
-#from .var import fVar
-#from .cmplx import fComplex
-#from .arrays import fExplicitArray, fDummyArray, fAssumedShape, fAssumedSize, fAllocatableArray
-#from .strings import fStr
-#from .types import fDerivedType
-import utils as u
-from errors import *
+from . import utils as u
+from .errors import *
 
 
 _TEST_FLAG = os.environ.get("_GFORT2PY_TEST_FLAG") is not None

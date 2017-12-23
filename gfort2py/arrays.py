@@ -5,11 +5,12 @@ import ctypes
 import collections
 import numpy as np
 import fnumpy
-from errors import *
-import dt
-import var
 import sys
-import utils as u
+
+from .errors import *
+from . import dt
+from . import var
+from . import utils as u
 
 
 if sys.byteorder is 'little':
@@ -58,8 +59,8 @@ class fArray(var.fVar):
     
     def __init__(self,pointer=True,kind=-1,name=None,param=False,
                     base_addr=-1,cname=None,pytype=None,ctype=None,
-                    shape=None,ndim=None,explicit=True,
-                    *args,**kwargs):
+                    shape=None,ndim=None,explicit=True,mangled_name=None,
+                    **kwargs):
     
         if shape is None and ndim is None:
             raise ValueError("Must set either shape or ndim")
@@ -73,6 +74,7 @@ class fArray(var.fVar):
         self._name = None
         self._value = None
         self._explicit = explicit
+        self._mangled_name = mangled_name
                             
         if shape is not None:
             print(shape)

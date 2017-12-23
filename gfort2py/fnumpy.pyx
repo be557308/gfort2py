@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0+
 
 cimport numpy as np
-import numpy as np
+#import numpy as np
 
 cdef extern from "numpy/ndarraytypes.h":
     void PyArray_CLEARFLAGS(np.ndarray arr, int flags)

@@ -11,9 +11,11 @@ import pickle
 import numpy as np
 import errno
 
-import var
-import utils
-import parseMod as pm
+from . import var
+from . import utils
+#from .  import arrays
+from . import dt
+from . import parseMod as pm
 
 WARN_ON_SKIP=False
 
@@ -30,6 +32,21 @@ _map2ctype = {
             'c_char_pstr':var.fChar,
             'c_intbool':var.fLogical
 }
+
+def _map2gf(x):
+	r = None
+	if 'param' in x:
+		v = x['param']
+		r = _map2ctype[v['ctype']+v['pytype']]
+	elif 'var' in x:
+		if 'array' in x['var']:
+			r = arrays.fArray
+		elif 'dt' in x['var']:
+			r = dt.fDT
+		else: # single variables
+			v = x['var']
+			r = _map2ctype[v['ctype']+v['pytype']]
+	return r
 
 
 
@@ -121,16 +138,17 @@ class fFort(object):
 				except KeyError:
 					# Variable not loaded yet
 					v = y['var']
-					y['gf'] = _map2ctype[v['ctype']+v['pytype']](name=y['name'],mangled_name=y['mangled_name'],**v)
+					y['gf'] = _map2gf(y)(name=y['name'],mangled_name=y['mangled_name'],**v)
 					x = y['gf']
 			elif key in self._param:
+				y = self._param[key]
 				try:
 					#Allready loaded variable
 					x = y['gf']
 				except KeyError:
 					# Variable not loaded yet
 					v = y['param']
-					y['gf'] = _map2ctype[v['ctype']+v['pytype']](name=y['name'],mangled_name=y['mangled_name'],**v)
+					y['gf'] = _map2gf(y)(name=y['name'],param=True,mangled_name=y['mangled_name'],**v)
 					x = y['gf']
 			elif key in self._funcs:
 				raise AttributeError("Can't get a procedure")
@@ -152,7 +170,7 @@ class fFort(object):
 				except KeyError:
 					# Variable not loaded yet
 					v = y['var']
-					y['gf'] = _map2ctype[v['ctype']+v['pytype']](name=y['name'],mangled_name=y['mangled_name'],**v)
+					y['gf'] = _map2gf(y)(name=y['name'],mangled_name=y['mangled_name'],**v)
 					
 				y['gf'].value = value
 			elif key in self._param:
