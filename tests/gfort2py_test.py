@@ -54,12 +54,12 @@ class TestStringMethods(unittest.TestCase):
 			a=x.invalid_var
 	
 	def test_a_str(self):
-		v='123456798'
+		v=b'1234567890'
 		x.a_str=v
 		self.assertEqual(x.a_str,v)
 		
 	def test_a_str_bad_length(self):
-		v='132456789kjhgjhf'
+		v=b'132456789kjhgjhf'
 		x.a_str=v
 		self.assertEqual(x.a_str,v[0:10])
 		
@@ -70,7 +70,7 @@ class TestStringMethods(unittest.TestCase):
 		
 	def test_a_int_str(self):
 		with self.assertRaises(ValueError) as cm:
-			x.a_int='abc'
+			x.a_int=b'abc'
 			
 	def test_a_real(self):
 		v=1.0
@@ -79,10 +79,10 @@ class TestStringMethods(unittest.TestCase):
 	
 	def test_a_real_str(self):	
 		with self.assertRaises(ValueError) as cm:
-			x.a_real='abc'
+			x.a_real=b'abc'
 			
 	def test_const_int_set(self):	
-		with self.assertRaises(ValueError) as cm:
+		with self.assertRaises(AttributeError) as cm:
 			x.const_int=2
 			
 	def test_const_int(self):	
@@ -105,7 +105,7 @@ class TestStringMethods(unittest.TestCase):
 
 	def test_const_int_arr_error(self):	
 		with self.assertRaises(AttributeError) as cm:
-			x.const_int_arr='abc'
+			x.const_int_arr=b'abc'
 		
 	def test_const_int_arr(self):	
 		np_test.assert_array_equal(x.const_int_arr,np.array([1,2,3,4,5,6,7,8,9,0],dtype='int'))
@@ -217,7 +217,7 @@ class TestStringMethods(unittest.TestCase):
 		self.assertEqual(x.a_real_qp_point,v)
 		
 	def test_a_str_point(self):
-		v='abcdefghij'
+		v=b'abcdefghij'
 		x.a_str_point=v
 		self.assertEqual(x.a_str_point,v)
 
@@ -247,7 +247,7 @@ class TestStringMethods(unittest.TestCase):
 		self.assertEqual(x.a_real_qp_target,v)
 		
 	def test_a_str_target(self):
-		v='abcdefghij'
+		v=b'abcdefghij'
 		x.a_str_target=v
 		self.assertEqual(x.a_str_target,v)
 
@@ -288,7 +288,7 @@ class TestStringMethods(unittest.TestCase):
 		self.assertEqual(x.a_real,99.0)
 		self.assertEqual(x.a_real_dp,99.0)
 		#self.assertEqual(x.a_real_qp,99.0)
-		self.assertEqual(x.a_str,"9999999999")
+		self.assertEqual(x.a_str,b"9999999999")
 		self.assertEqual(x.a_cmplx,complex(99.0,99.0))
 		self.assertEqual(x.a_cmplx_dp,complex(99.0,99.0))
 		#self.assertEqual(x.a_cmplx_qp,complex(99.0,99.0))	
@@ -328,14 +328,14 @@ class TestStringMethods(unittest.TestCase):
 		self.assertEqual(y,4.0)
 		
 	def test_sub_str_in_explicit(self):
-		v='1324567980'
+		v=b'1324567980'
 		with captured_output() as (out,err):
 			y=x.sub_str_in_explicit(v)
 		output=out.getvalue().strip()
 		self.assertEqual(output,v)	
 		
 	def test_sub_str_in_implicit(self):
-		v='123456789'
+		v=b'123456789'
 		with captured_output() as (out,err):
 			y=x.sub_str_in_implicit(v)
 		output=out.getvalue().strip()	
@@ -343,7 +343,7 @@ class TestStringMethods(unittest.TestCase):
 	
 	def test_sub_str_multi(self):
 		v=5
-		u='123456789'
+		u=b'123456789'
 		w=4
 		with captured_output() as (out,err):
 			y=x.sub_str_multi(v,u,w)
@@ -483,7 +483,7 @@ class TestStringMethods(unittest.TestCase):
 		self.assertEqual(y,{'x':5,'y':5})
 			
 	def test_dt_bad_dict(self):
-		with self.assertRaises(ValueError) as cm:
+		with self.assertRaises(KeyError) as cm:
 			x.f_struct_simple = {'asw':2,'y':0}
 			
 	def test_dt_bad_value(self):

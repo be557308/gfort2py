@@ -13,7 +13,8 @@ import errno
 
 from . import var
 from . import utils
-#from .  import arrays
+from . import arrays
+from . import functions as func
 from . import dt
 from . import parseMod as pm
 
@@ -154,7 +155,22 @@ class fFort(object):
 					y['gf'] = _map2gf(y)(name=y['name'],param=True,mangled_name=y['mangled_name'],**v)
 					x = y['gf']
 			elif key in self._funcs:
-				raise AttributeError("Can't get a procedure")
+				y = self._funcs[key]
+				try:
+					#Allready loaded variable
+					x = y['gf']
+				except KeyError:
+					# function not loaded yet
+					v = y['arg']
+					fv = [_map2gf(i['var'])(**i['var']) for i in v]
+					name = [i['name'] for i in v]
+					opt = [i['var']['optional'] for i in v]
+					intent = [i['var']['intent'] for i in v]
+					y['gf'] = func.fFunc(name=y['name'],mangled_name=y['mangled_name'],
+										arg_return=y['proc']['ctype'],
+										arg_names=name,arg_fvar=fv,
+										arg_opts=opt,arg_intents=intent)
+					x = y['gf']
 			else:
 				raise KeyError("Key "+str(key)+" does not exist")
 				

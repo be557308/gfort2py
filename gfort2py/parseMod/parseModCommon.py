@@ -258,6 +258,7 @@ class parseModBase(object):
             #Both dts but sometimes the definition moves
             res['dt'] = self.processDTVar(info)
             
+        res['optional']=False
         if 'POINTER' in symbol_info:
             res['pointer']=True
         if 'TARGET' in symbol_info:

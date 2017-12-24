@@ -112,16 +112,21 @@ class fVar(object):
         
     def _set_from_buffer(self):
         for i in range(self._length):
-            offset = self._base_addr + i * ctypes.sizeof(self._ctype)
+            offset = self._base_addr + i * self.sizeof
             self._ctype.from_address(offset).value = self._value[i]
         
     def _get_from_buffer(self):
-        self._value = []
+        value = []
         for i in range(self._length):
-            offset = self._base_addr + i * ctypes.sizeof(self._ctype)
-            self._value[i] = self._ctype.from_address(offset).value
+            offset = self._base_addr + i * self.sizeof
+            value.append(self._ctype.from_address(offset).value)
+        return value
         
+    @property
+    def sizeof(self):
+        return ctypes.sizeof(self._ctype)
         
+    
     # self.value should allways be a python type so we overload and let
     # the python types __X__ functions act    
     
@@ -429,21 +434,20 @@ class fLogical(fVar):
         else:
             self._value = self._pytype(0)
         
-    
         
-        
-class fSingleCmplx(fVar):
+class fCmplx(fVar):
     def __init__(self,pointer=True,param=False,name=None,mangled_name=None,
-                base_addr=-1,**kwargs):
+                base_addr=-1,cname=None,**kwargs):
 
-        cname = 'c_float'*2
         pytype = complex
         kwargs = _cleanDict(kwargs)
-        super(fSingleCmplx, self).__init__(pointer=pointer,mangled_name=mangled_name,
+        super(fCmplx, self).__init__(pointer=pointer,mangled_name=mangled_name,
                                     param=param,name=name,base_addr=base_addr,
                                     cname=cname,pytype=pytype,
                                     **kwargs)
-        
+                                    
+        # self._ctype  = getattr(ctypes,cname)*2
+        # self._ctype_p = ctypes.POINTER(self._ctype)
         self._length = 2
         if 'value' in kwargs:
              self._value = self._pytype(kwargs['value'])
@@ -453,10 +457,10 @@ class fSingleCmplx(fVar):
     @property
     def value(self,new=True):
         if self._base_addr > 0:
-            x = self._get_from_buffer(self._base_addr)
+            x = self._get_from_buffer()
         else:
             x = [self._value.real,self._value.imag]
-            
+
         self._value = self._pytype(x[0],x[1])
 
         return self._value
@@ -466,91 +470,46 @@ class fSingleCmplx(fVar):
         if self._base_addr < 0:
             raise ValueError("Value not mapped to fortran")        
         
-        self._value = self._pytype(value)
+        self._value = [value.real,value.imag]
         
         self._set_from_buffer()
         
-class fDoubleCmplx(fVar):
+    # @property
+    # def sizeof(self):
+        # return ctypes.sizeof(self._ctype)//2
+    
+        
+        
+class fSingleCmplx(fCmplx):
     def __init__(self,pointer=True,param=False,name=None,mangled_name=None,
                 base_addr=-1,**kwargs):
 
-        cname = 'c_double'*2
-        pytype = complex
-        kwargs = _cleanDict(kwargs)
+        cname = 'c_float'
+        super(fSingleCmplx, self).__init__(pointer=pointer,mangled_name=mangled_name,
+                                    param=param,name=name,base_addr=base_addr,
+                                    cname=cname,
+                                    **kwargs)
+                                    
+        
+class fDoubleCmplx(fCmplx):
+    def __init__(self,pointer=True,param=False,name=None,mangled_name=None,
+                base_addr=-1,**kwargs):
+
+        cname = 'c_double'
         super(fDoubleCmplx, self).__init__(pointer=pointer,mangled_name=mangled_name,
                                     param=param,name=name,base_addr=base_addr,
-                                    cname=cname,pytype=pytype,
+                                    cname=cname,
                                     **kwargs)
         
-        self._length = 2
-        if 'value' in kwargs:
-             self._value = self._pytype(kwargs['value'])
-        else:
-            self._value = self._pytype(0.0)
-
-    @property
-    def value(self,new=True):
-        if self._base_addr > 0:
-            x = self._get_from_buffer(self._base_addr)
-        else:
-            x = [self._value.real,self._value.imag]
-            
-        self._value = self._pytype(x[0],x[1])
-
-        return self._value
-        
-    @value.setter
-    def value(self,value):
-        if not self._param:
-            if self._base_addr < 0:
-                raise ValueError("Value not mapped to fortran")   
-        else:
-            raise AttributeError("Can not alter a parameter")
-        
-        self._value = self._pytype(value)
-        
-        self._set_from_buffer()
-        
-class fQuadCmplx(fVar):
+class fQuadCmplx(fCmplx):
     def __init__(self,pointer=True,param=False,name=None,mangled_name=None,
                 base_addr=-1,**kwargs):
 
-        cname = 'c_longdouble'*2
-        pytype = complex
-        kwargs = _cleanDict(kwargs)
+        cname = 'c_longdouble'
         super(fQuadCmplx, self).__init__(pointer=pointer,mangled_name=mangled_name,
                                     param=param,name=name,base_addr=base_addr,
-                                    cname=cname,pytype=pytype,
+                                    cname=cname,
                                     **kwargs)
-        
-        self._length = 2
-        if 'value' in kwargs:
-             self._value = self._pytype(kwargs['value'])
-        else:
-            self._value = self._pytype(0.0)
-
-    @property
-    def value(self,new=True):
-        if self._base_addr > 0:
-            x = self._get_from_buffer(self._base_addr)
-        else:
-            x = [self._value.real,self._value.imag]
-            
-        self._value = self._pytype(x[0],x[1])
-
-        return self._value
-        
-    @value.setter
-    def value(self,value):
-        if not self._param:
-            if self._base_addr < 0:
-                raise ValueError("Value not mapped to fortran")   
-        else:
-            raise AttributeError("Can not alter a parameter")
-        
-        self._value = self._pytype(value)
-        
-        self._set_from_buffer()
    
 
 class fChar(fVar):

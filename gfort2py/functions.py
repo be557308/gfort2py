@@ -43,18 +43,21 @@ class captureStdOut():
             os.close(self.pipe_out)
             os.close(self.stdout)
 
-_args = collections.namedtuple('_args',('fvar','intent','opt'))
+#_args = collections.namedtuple('_args',('fvar','intent','opt'))
 
 class fFunc(object):
-    def __init__(self,name,arg_return=None,arg_names=[],arg_types=[],
+    def __init__(self,name,mangled_name,arg_return=None,arg_names=[],arg_fvar=[],
                 arg_opts=[],arg_intents=[]):
         self._name = name
         self._arg_return = arg_return
+        self._mangled_name = mangled_name
 
         self._args=collections.OrderedDict()
                 
-        for n,v,o,i in itertools.zip_longest(arg_names,arg_types,arg_opts,arg_intents,fillvalue=None):            
-            self._args[n]=_args(v,i,o)
+        self._arg_names = arg_names
+        self._arg_fvar = arg_fvar
+        self._arg_opts = arg_opts
+        self._arg_intents = arg_intents
 
         try:
             self._call = getattr(u._lib, self._mod_name)
@@ -69,7 +72,7 @@ class fFunc(object):
     def _mod_name(self):
         res = ''
         if self.name is not None:
-            return u._module + self.name
+            return self._mangled_name
         return res 
         
     @property    
@@ -77,27 +80,26 @@ class fFunc(object):
         return self._name
 
 
-    def __call__(self,**kwargs):
+    def __call__(self,*args,**kwargs):
+        
+        #Build a list of args
+        args_in = args
+        args_in.extend([kwargs[i] for i in arg_names[len(args):]])
         
         # Argument processing
         args=[]
-        for name,info in self._args.items():
-            if name not in kwargs:
-                raise AttributeError("Missing argument "+str(name))
-            value=kwargs[name]
-            
+        for name, value,opt, fvar, in zip(self._arg_names,args_in,self._arg_opts,self._arg_fvar):
             if value is None:
                 #Optional arguments:
-                if not info.opt is None:
+                if not opt:
                     # Check if optional is in arg list
                     raise ValueError("Passed as optional, non optional argument "+str(name))
                 args.append(ctypes.c_void_p(None))
-            elif (info.intent is not 'in') or info.fvar._pointer:
+            elif intent is not 'in' or fvar._pointer:
                 #Intents inout, out or unknown
-                args.append(info.fvar._ctype_p(info.fvar._ctype(value)))
+                args.append(fvar._ctype_p(fvar._ctype(value)))
             else:
-                info.fvar.value=value
-                args.append(info.fvar._ctype(value))
+                args.append(fvar._ctype(value))
 
         # Capture stdout messages
         with captureStdOut() as cs:  
@@ -109,12 +111,10 @@ class fFunc(object):
 
         # Deal with intent inout,out,unknown arguments
         args_out={}
-        for name,value in zip(self._args.keys(),args):
-            info = self._args[name]
-                
-            if (info.intent is not 'in'):
+        for name,value,intent,fvar in zip(self._args_names,args,self._arg_intent,self._arg_fvar):
+            if intent is not 'in':
                 #Intents inout, out or unknown
-                args_out[name]=info.fvar
+                args_out[name]=fvar
                 # Should proberbly do something with pointers for arrays
                 args_out[name].value = value.contents.value
         

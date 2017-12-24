@@ -4,13 +4,13 @@ from __future__ import print_function
 import ctypes
 import collections
 import numpy as np
-import fnumpy
 import sys
 
 from .errors import *
 from . import dt
 from . import var
 from . import utils as u
+from . import fnumpy
 
 
 if sys.byteorder is 'little':
