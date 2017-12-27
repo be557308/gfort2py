@@ -87,7 +87,8 @@ class fVar(object):
         else:
             x = self._value
             
-        self._value = self._pytype(x)
+        if self._pytype is not np.array:
+            self._value = self._pytype(x)
 
         return self._value
       
@@ -318,6 +319,14 @@ class fVar(object):
         
     def __hash__(self):
         raise NotImplemented
+        
+    def _set_default_value(self,default,**kwargs):
+        if 'value' in kwargs:
+            if 'array' in kwargs:
+                self._pytype = np.array
+            self._value = self._pytype(kwargs['value'])
+        else:
+            self._value = self._pytype(default)
 
 def _cleanDict(d):
     for i in ['pointer','param','name','cname','pytype']:
@@ -340,10 +349,7 @@ class fInt(fVar):
                                     cname=cname,pytype=pytype,
                                     **kwargs)
                              
-        if 'value' in kwargs:
-             self._value = self._pytype(kwargs['value'])
-        else:
-            self._value = self._pytype(0)
+        self._set_default_value(0,**kwargs)
         
 class fLongInt(fVar):
 
@@ -358,10 +364,7 @@ class fLongInt(fVar):
                                     cname=cname,pytype=pytype,
                                     **kwargs)
                                     
-        if 'value' in kwargs:
-             self._value = self._pytype(kwargs['value'])
-        else:
-            self._value = self._pytype(0.0)
+        self._set_default_value(0,**kwargs)
     
     
         
@@ -377,10 +380,7 @@ class fSingle(fVar):
                                     cname=cname,pytype=pytype,
                                     **kwargs)
                                     
-        if 'value' in kwargs:
-             self._value = self._pytype(kwargs['value'])
-        else:
-            self._value = self._pytype(0.0)
+        self._set_default_value(0.0,**kwargs)
         
 class fDouble(fVar):
    def __init__(self,pointer=True,param=False,name=None,mangled_name=None,
@@ -394,10 +394,7 @@ class fDouble(fVar):
                                     cname=cname,pytype=pytype,
                                     **kwargs)
                                     
-        if 'value' in kwargs:
-             self._value = self._pytype(kwargs['value'])
-        else:
-            self._value = self._pytype(0.0)
+        self._set_default_value(0.0,**kwargs)
         
 class fQuad(fVar):
    def __init__(self,pointer=True,param=False,name=None,mangled_name=None,
@@ -411,10 +408,7 @@ class fQuad(fVar):
                                     cname=cname,pytype=pytype,
                                     **kwargs)
                                     
-        if 'value' in kwargs:
-             self._value = self._pytype(kwargs['value'])
-        else:
-            self._value = self._pytype(0.0)
+        self._set_default_value(0.0,**kwargs)
 
         
 class fLogical(fVar):
@@ -429,10 +423,7 @@ class fLogical(fVar):
                                     cname=cname,pytype=pytype,
                                     **kwargs)
                                     
-        if 'value' in kwargs:
-             self._value = self._pytype(kwargs['value'])
-        else:
-            self._value = self._pytype(0)
+        self._set_default_value(0,**kwargs)
         
         
 class fCmplx(fVar):
@@ -449,10 +440,7 @@ class fCmplx(fVar):
         # self._ctype  = getattr(ctypes,cname)*2
         # self._ctype_p = ctypes.POINTER(self._ctype)
         self._length = 2
-        if 'value' in kwargs:
-             self._value = self._pytype(kwargs['value'])
-        else:
-            self._value = self._pytype(0.0)
+        self._set_default_value(complex(0.0),**kwargs)
     
     @property
     def value(self,new=True):
@@ -525,10 +513,7 @@ class fChar(fVar):
                                     cname=cname,pytype=pytype,
                                     **kwargs)
         
-        if 'value' in kwargs:
-             self._value = self._pytype(kwargs['value'].encode())
-        else:
-            self._value = self._pytype(b'')
+        self._set_default_value(b'',**kwargs)
 
 
         if self._param:

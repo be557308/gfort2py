@@ -1,6 +1,12 @@
 # SPDX-License-Identifier: GPL-2.0+
 
 from __future__ import print_function
+try:
+	import __builtin__
+except ImportError:
+	import builtins as __builtin__
+
+
 import ctypes
 import collections
 import numpy as np
@@ -77,7 +83,6 @@ class fArray(var.fVar):
         self._mangled_name = mangled_name
                             
         if shape is not None:
-            print(shape)
             if not hasattr(shape,'__iter__'):
                 raise ValueError("Shape must be an iterable")
             self._shape = tuple(shape)
@@ -85,6 +90,7 @@ class fArray(var.fVar):
             self._falloc = True
                 
         if ndim is not None:
+            ndim = int(ndim)
             if ndim < 0:
                 raise ValueError("ndim must be > 0")
             self._ndim = ndim
@@ -109,9 +115,9 @@ class fArray(var.fVar):
         self._ctype_p = ctypes.c_void_p
                 
         #python type of indivdual element
-        self._pytype_s = pytype
+        self._pytype_s = getattr(__builtin__,pytype)
         #ctype of a single element
-        self._ctype_s = ctype
+        self._ctype_s = getattr(ctypes,ctype)
         
         self._init_farray()
         
@@ -139,46 +145,44 @@ class fArray(var.fVar):
         
         if self._base_addr < 0:
             raise ValueError("Must set either the name or base_addr of array")
-        
-        if self._ref.value is None:
-            raise ArrayNotAllocated("Array hasn't been allocated yet")
-        
-        
-        if self._explicit:
-            #These are defined only by a pointer to the first element
-            BT = self._PY_TO_BT[str(self._pytype_s.__name__)]
-            size = ctypes.sizeof(self._ctype_s)
 
+        if self._explicit:
             strides = tuple(int(np.product(self._shape[0:i])) for i,v in enumerate(self._shape))
             self._farray.__array_interface__['data'] = (self._base_addr,False)
             
         else:            
+            if self._ref.value is None:
+                raise ArrayNotAllocated("Array hasn't been allocated yet")
+        
             self._ndim, BT, size = self._split_dtype(self._farray['dtype'])
             self._shape = self._get_shape()
             strides = self._get_strides()
             self._farray.__array_interface__['data'] = (self._ref.value,False)
             
         self._farray.__array_interface__['shape'] = self._shape
-        self._farray.__array_interface__['typestr'] = self._BT_to_typestr(BT)+str(size)
+        self._farray.__array_interface__['typestr'] = self._get_type_str()
         if self._ndim > 1:
             self._farray.__array_interface__['strides'] = tuple(i*size for i in strides)
         else:
             self._farray.__array_interface__['strides'] = None
         
-        print(self._farray.__array_interface__)
         self._value = np.array(self._farray,copy=False)
-        print("*",self._value)
         fnumpy.remove_ownership(self._value)
         self._falloc = True
         self._pyalloc = False
-        
         return self._value
        
     @value.setter
     def value(self,value):
         # TODO: Add logic to deallocate the old array
         if self._param:
-            raise ValueError("Cant alter a parameter")
+            raise ValueError("Can't alter a parameter")
+        
+        # Type check
+        if  not value.__array_interface__['typestr'] == self._get_type_str():
+            raise ValueError("Array is wrong type, got "+ str(value.__array_interface__['typestr'])+
+                            " expected "+str(self._get_type_str()))
+        
         
         self._value = value
         fnumpy.remove_ownership(self._value)
@@ -188,9 +192,8 @@ class fArray(var.fVar):
         
         #self._up_ref()
         self._farray.__array_interface__ = self._value.__array_interface__
-        
         # This misses the first 8 bytes
-        #self._base_addr = self._farray.__array_interface__['data'][0]
+        self._base_addr = self._farray.__array_interface__['data'][0]
         # This sets only the first 8 bytes
         #ctypes.memmove(self._base_addr,self._value.ctypes.data, ctypes.sizeof(ctypes.c_void_p))
        
@@ -201,8 +204,17 @@ class fArray(var.fVar):
                                                    ftype=str(self._pytype_s)
                                                    )
             self._set_bounds()
-        print(self._farray.__array_interface__)
         
+    def _get_type_str(self):
+        if self._explicit:
+            #These are defined only by a pointer to the first element
+            BT = self._PY_TO_BT[str(self._pytype_s.__name__)]
+            size = ctypes.sizeof(self._ctype_s)
+        else:            
+            if self._ref.value is None:
+                raise ArrayNotAllocated("Array hasn't been allocated yet")
+            _, BT, size = self._split_dtype(self._farray['dtype'])
+        return self._BT_to_typestr(BT)+str(size)
         
         
     def _get_bounds(self):
@@ -295,7 +307,7 @@ class fArray(var.fVar):
     def _mod_name(self):
         res = ''
         if self.name is not None:
-            return u._module + self.name
+            return self._mangled_name
         return res 
         
     @property    

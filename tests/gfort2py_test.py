@@ -108,13 +108,13 @@ class TestStringMethods(unittest.TestCase):
 			x.const_int_arr=b'abc'
 		
 	def test_const_int_arr(self):	
-		np_test.assert_array_equal(x.const_int_arr,np.array([1,2,3,4,5,6,7,8,9,0],dtype='int'))
+		self.assertTrue(np.all(x.const_int_arr==np.array([1,2,3,4,5,6,7,8,9,0])))
 
 	def test_const_real_arr(self):	
-		np_test.assert_array_equal(x.const_real_arr,np.array([1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,0.0],dtype='float'))
+		self.assertTrue(np.all(x.const_int_arr==np.array([1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,0.0])))
 
 	def test_const_dp_arr(self):	
-		np_test.assert_array_equal(x.const_real_dp_arr,np.array([1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,0.0],dtype='float'))
+		self.assertTrue(np.all(x.const_int_arr==np.array([1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,0.0])))
 
 	def test_b_int_exp_1d(self):
 		v=np.random.randint(0,100,size=(5))

@@ -83,12 +83,12 @@ class fFunc(object):
     def __call__(self,*args,**kwargs):
         
         #Build a list of args
-        args_in = args
-        args_in.extend([kwargs[i] for i in arg_names[len(args):]])
+        args_in = list(args)
+        args_in.extend([kwargs[i] for i in self._arg_names[len(args):]])
         
         # Argument processing
         args=[]
-        for name, value,opt, fvar, in zip(self._arg_names,args_in,self._arg_opts,self._arg_fvar):
+        for name, value,opt, fvar,intent in zip(self._arg_names,args_in,self._arg_opts,self._arg_fvar,self._arg_intents):
             if value is None:
                 #Optional arguments:
                 if not opt:
@@ -111,7 +111,7 @@ class fFunc(object):
 
         # Deal with intent inout,out,unknown arguments
         args_out={}
-        for name,value,intent,fvar in zip(self._args_names,args,self._arg_intent,self._arg_fvar):
+        for name,value,intent,fvar in zip(self._arg_names,args,self._arg_intents,self._arg_fvar):
             if intent is not 'in':
                 #Intents inout, out or unknown
                 args_out[name]=fvar

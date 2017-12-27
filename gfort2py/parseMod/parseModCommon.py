@@ -402,9 +402,9 @@ class parseModBase(object):
         elif 'ASSUMED_SIZE' in info[4]:
             r['atype'] = 'assumed_size'
         elif 'CONSTANT' in info[4]:
-            r['bounds'] = self.getBounds(info)
+            r['shape'] = self.getBounds(info)
             r['atype'] = 'explicit'
-        r['ndims'] = self.getNdims(info)
+        r['ndim'] = self.getNdims(info)
         
         p, c, s=self.getVarType(info[2])
         

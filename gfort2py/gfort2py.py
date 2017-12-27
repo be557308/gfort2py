@@ -64,7 +64,6 @@ class fFort(object):
 		self._fpy = pm.fpyname(ffile)
 		self._load_data(ffile, rerun)
 		utils.loadLib(self._libname)
-		self._init()
 		self._initilised = True
 	
 	def _load_data(self, ffile, rerun=False):
@@ -100,97 +99,71 @@ class fFort(object):
 		self._mod_vars = x[1]
 		self._param = x[2]
 		self._funcs = x[3]
-		self._dt_defs = x[4]
-		
-	
-	def _init(self):
-		pass
+		self._dt_defs = x[4]			
 			
-
-	
-	def _getType(self,obj):
+	def _init_param(self,y):
+		v = y['param']
+		gf = _map2gf(y)
+		return gf(name=y['name'],mangled_name=y['mangled_name'],param=True,**v)
 		
-		if 'dt' in obj:
+	def _init_var(self,y):
+		v = y['var']
+		gf = _map2gf(y)
+		if 'array' in v:
+			return gf(name=y['name'],mangled_name=y['mangled_name'],**v['array'])
+		elif 'dt' in v:
 			pass
-		elif 'array' in obj:
-			pass
-		elif 'param' in obj:
-			pass
-		elif 'var' in obj:
-			pass
-				
+			# return gf(name=y['name'],mangled_name=y['mangled_name'],**v)
+		else:
+			return gf(name=y['name'],mangled_name=y['mangled_name'],**v)
+			
+		
+	def _init_func(self,y):
+		v = y['arg']
+		fv = [_map2gf(i)(**i['var']) for i in v]
+		name = [i['name'] for i in v]
+		opt = [i['var']['optional'] for i in v]
+		intent = [i['var']['intent'] for i in v]
+		return func.fFunc(name=y['name'],mangled_name=y['mangled_name'],
+							arg_return=_map2gf(y['proc']),
+							arg_names=name,arg_fvar=fv,
+							arg_opts=opt,arg_intents=intent)
 				
 	def __dir__(self):
 		return list(self._mod_vars.keys())+list(self._param.keys())+list(self._funcs.keys())
-           
-           
-    # TODO: getattr and setattr need to be refactored into small function
            
 	def __getattr__(self,key):
 		if key in self.__dict__:
 			return self.__dict__[key]
 		
 		key = key.lower()
-		x = None
-		
+
 		if self._initilised:
 			if key in self._mod_vars :
 				y = self._mod_vars[key]
-				try:
-					#Allready loaded variable
-					x = y['gf']
-				except KeyError:
-					# Variable not loaded yet
-					v = y['var']
-					y['gf'] = _map2gf(y)(name=y['name'],mangled_name=y['mangled_name'],**v)
-					x = y['gf']
+				if 'gf' not in y:
+					y['gf'] = self._init_var(y)
 			elif key in self._param:
 				y = self._param[key]
-				try:
-					#Allready loaded variable
-					x = y['gf']
-				except KeyError:
-					# Variable not loaded yet
-					v = y['param']
-					y['gf'] = _map2gf(y)(name=y['name'],param=True,mangled_name=y['mangled_name'],**v)
-					x = y['gf']
+				if 'gf' not in y:
+					y['gf'] = self._init_param(y)
 			elif key in self._funcs:
 				y = self._funcs[key]
-				try:
-					#Allready loaded variable
-					x = y['gf']
-				except KeyError:
-					# function not loaded yet
-					v = y['arg']
-					fv = [_map2gf(i['var'])(**i['var']) for i in v]
-					name = [i['name'] for i in v]
-					opt = [i['var']['optional'] for i in v]
-					intent = [i['var']['intent'] for i in v]
-					y['gf'] = func.fFunc(name=y['name'],mangled_name=y['mangled_name'],
-										arg_return=y['proc']['ctype'],
-										arg_names=name,arg_fvar=fv,
-										arg_opts=opt,arg_intents=intent)
-					x = y['gf']
+				if 'gf' not in y:
+					y['gf'] = self._init_func(y)
 			else:
 				raise KeyError("Key "+str(key)+" does not exist")
 				
-		return x
+			return y['gf']
 		
 	def __setattr__(self,key,value):
 
 		key = key.lower()
-		x = None
 		if self._initilised:
 			if key in self._mod_vars :
 				y = self._mod_vars[key]
-				try:
-					#Allready loaded variable
-					x = y['gf']
-				except KeyError:
-					# Variable not loaded yet
-					v = y['var']
-					y['gf'] = _map2gf(y)(name=y['name'],mangled_name=y['mangled_name'],**v)
-					
+				if 'gf' not in y:
+					y['gf'] = self._init_var(y)
 				y['gf'].value = value
 			elif key in self._param:
 				raise AttributeError("Can't alter a parameter")
