@@ -441,7 +441,7 @@ class fCmplx(fVar):
         # self._ctype_p = ctypes.POINTER(self._ctype)
         self._length = 2
         self._set_default_value(complex(0.0),**kwargs)
-    
+        
     @property
     def value(self,new=True):
         if self._base_addr > 0:
@@ -449,7 +449,7 @@ class fCmplx(fVar):
         else:
             x = [self._value.real,self._value.imag]
 
-        self._value = self._pytype(x[0],x[1])
+        self._value = complex(x[0],x[1])
 
         return self._value
       
