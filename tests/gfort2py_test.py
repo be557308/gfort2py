@@ -475,12 +475,15 @@ class TestStringMethods(unittest.TestCase):
 		x.f_struct_simple.x=1
 		x.f_struct_simple.y=0
 		y=x.f_struct_simple
-		self.assertEqual(y,{'x':1,'y':0})
+		self.assertEqual(y.x,1)
+		self.assertEqual(y['y'],0)
 		
 	def test_dt_set_dict(self):	
-		x.f_struct_simple={'x':5,'y':5}
+		x.f_struct_simple['x'] = 5
+		x.f_struct_simple['y'] = 5
 		y=x.f_struct_simple
-		self.assertEqual(y,{'x':5,'y':5})
+		self.assertEqual(y.x,5)
+		self.assertEqual(y['y'],5)
 			
 	def test_dt_bad_dict(self):
 		with self.assertRaises(KeyError) as cm:
@@ -923,7 +926,8 @@ class TestStringMethods(unittest.TestCase):
 		x.f_struct_simple2.x=99
 		y=x.sub_use_mod()
 		self.assertEqual(x.test2_x,1)
-		self.assertEqual(x.f_struct_simple2,{'x':5,'y':6})
+		self.assertEqual(x.f_struct_simple2.x,5)
+		self.assertEqual(x.f_struct_simple2['y'],6)
 	
 	def test_nested_dts(self):
 		x.g_struct.a_int=10
