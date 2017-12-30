@@ -64,6 +64,8 @@ class fFort(object):
 		self._fpy = pm.fpyname(ffile)
 		self._load_data(ffile, rerun)
 		utils.loadLib(self._libname)
+		
+		self._init_dt_def()
 		self._initilised = True
 	
 	def _load_data(self, ffile, rerun=False):
@@ -112,11 +114,10 @@ class fFort(object):
 		if 'array' in v:
 			return gf(name=y['name'],mangled_name=y['mangled_name'],**v['array'])
 		elif 'dt' in v:
-			pass
-			# return gf(name=y['name'],mangled_name=y['mangled_name'],**v)
+			return gf(name=y['name'],mangled_name=y['mangled_name'],dt_name=v['dt']['name'])
 		else:
 			return gf(name=y['name'],mangled_name=y['mangled_name'],**v)
-			
+				
 		
 	def _init_func(self,y):
 		v = y['arg']
@@ -128,6 +129,19 @@ class fFort(object):
 							arg_return=_map2gf(y['proc']),
 							arg_names=name,arg_fvar=fv,
 							arg_opts=opt,arg_intents=intent)
+				
+				
+	def _init_dt_def(self):
+		for key, value in self._dt_defs.items():
+
+			dt._dictDTDefs[key] = {}
+
+			args = value['dt_def']['arg']
+			dt._dictDTDefs[key]['keys'] = [i['name'] for i in args]
+			dt._dictDTDefs[key]['key_types'] = [getattr(ctypes,i['var']['ctype']) for i in args]
+			dt._dictDTDefs[key]['key_sizes'] = [int(i['var']['bytes']) for i in args]
+			dt._dictDTDefs[key]['key_fvars'] = [_map2gf(i) for i in args]
+			
 				
 	def __dir__(self):
 		return list(self._mod_vars.keys())+list(self._param.keys())+list(self._funcs.keys())

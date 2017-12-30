@@ -118,7 +118,7 @@ class parseModBase(object):
             r={}
             z = i.split()
             r['name'] = z[0].lower().replace("'","")
-            r['module'] = z[1]
+            r['module'] = z[1].replace("'","")
             r['num'] = int(z[2])
             if(len(z))> 3:
                 r['num_alts']=z[2:]
@@ -148,7 +148,7 @@ class parseModBase(object):
                 
                 if not found:
                     self.dt_defines.append({'name':name,
-                                        'module':module,
+                                        'module':module.replace("'",""),
                                         'num':num})
     
     def parseAllCommon(self):
@@ -326,7 +326,11 @@ class parseModBase(object):
             #Re-order to be the same as everything else
             newL = [info_el[2],'()',info_el[0],'()',info_el[1]]
             dtEl['var'] = self.parseVar(newL)
+            #Fix size 
+            if 'dt' in dtEl['var']:
+                dtEl['var']['bytes'] = ctypes.sizeof(ctypes.c_void_p)
             res['arg'].append(dtEl)
+            
         
         return res
         

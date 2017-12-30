@@ -7,11 +7,19 @@ import ctypes
 from . import var 
 from . import utils as u
 
+
+# We need to store the defs here so fDT can find them during runtime 
+# so we can dynamic "load" them (so we dont need to resolve them in one go
+# which gets messy with recursive DT's). 
+_dictDTDefs = {}
+
+
 class fDT(var.fVar):
 
-    _elem = collections.namedtuple('_elem',('offset','ctype'))
+    _elem = collections.namedtuple('_elem',('offset','ctype','fvar'))
     
     def __init__(self,name=None,base_addr=-1,keys=[],key_sizes=[],key_types=[],
+				key_fvars=[],dt_name=None,
                 pointer=False,param=False,mangled_name=None,**kwargs):
 					
         self._name = name
@@ -27,7 +35,15 @@ class fDT(var.fVar):
         self._pytype = dict
 
         if self._name is not None:
-            self._up_ref()        
+            self._up_ref()     
+            
+        if dt_name is not None:
+            dtdf = _dictDTDefs[dt_name]
+            keys = dtdf['keys']
+            key_sizes = dtdf['key_sizes']
+            key_fvars = dtdf['key_fvars']
+            key_types = dtdf['key_types']
+			
         
         if len(key_sizes)==0:
             key_sizes = [ctypes.sizeof(k) for k in key_types]
@@ -37,8 +53,8 @@ class fDT(var.fVar):
         offsets = np.cumsum(key_sizes)
         
         self._value={}
-        for i,j,k in zip(keys,offsets,key_types):
-            self._value[i]=self._elem(j,k)
+        for i,j,k,l in zip(keys,offsets,key_types,key_fvars):
+            self._value[i]=self._elem(j,k,l)
         
     def __getitem__(self,key):
         x = self._get_ref(key)
@@ -58,6 +74,20 @@ class fDT(var.fVar):
         x_addr = self._base_addr + self._value[key].offset
         x = self._value[key].ctype.from_address(int(x_addr))
         return x
+        
+    def __getattr__(self,key):
+        if key in self.__dict__:
+            return self.__dict__[key]
+            
+        return self.__getitem__(key)
+        
+    def __setattr__(self,key,value):
+        
+        if '_value' in self.__dict__:
+            self.__setitem__(key,value)
+        else:
+            self.__dict__[key] = value   
+        
         
     def __delitem__(self,key):
         pass
