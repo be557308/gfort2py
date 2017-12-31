@@ -5,25 +5,46 @@ python:
   - "3.3"
   - "3.4"
   - "3.5"
-  - "3.5-dev" # 3.5 development branch
   - "3.6"
   - "3.6-dev" # 3.6 development branch
   - "3.7-dev" # 3.7 development branch
-  - "nightly" # currently points to 3.7-dev
 matrix:
 # cython is currently broken with these
   allow_failures:
     - python: "3.7-dev" 
-    - python: "nightly"
-  
-# command to install dependencies
-addons:
-  apt:
-    sources:
-      - ubuntu-toolchain-r-test
-    packages:
-      - gfortran-6
-      - gzip
+  include:
+     addons:
+         apt:
+            sources:
+               - ubuntu-toolchain-r-test
+            packages:
+               - gfortran-6
+               - gzip
+  include:
+     addons:
+         apt:
+            sources:
+               - ubuntu-toolchain-r-test
+            packages:
+               - gfortran-7
+               - gzip
+  include:
+     addons:
+         apt:
+            sources:
+               - ubuntu-toolchain-r-test
+            packages:
+               - gfortran-5
+               - gzip
+  include:
+     addons:
+         apt:
+            sources:
+               - ubuntu-toolchain-r-test
+            packages:
+               - gfortran-4
+               - gzip
+
 install: 
   - pip install -r requirements.txt
   - pip install -e .[dev]
