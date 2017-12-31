@@ -472,26 +472,26 @@ class TestStringMethods(unittest.TestCase):
 		np_test.assert_array_equal(y['x'],2*v)
 		
 	def test_dt_set_value(self):
-		x.f_struct_simple.x=1
-		x.f_struct_simple.y=0
+		x.f_struct_simple['x']=1
+		x.f_struct_simple['y']=0
 		y=x.f_struct_simple
-		self.assertEqual(y.x,1)
+		self.assertEqual(y['x'],1)
 		self.assertEqual(y['y'],0)
 		
 	def test_dt_set_dict(self):	
 		x.f_struct_simple['x'] = 5
 		x.f_struct_simple['y'] = 5
 		y=x.f_struct_simple
-		self.assertEqual(y.x,5)
+		self.assertEqual(y['x'],5)
 		self.assertEqual(y['y'],5)
 			
 	def test_dt_bad_dict(self):
 		with self.assertRaises(KeyError) as cm:
-			x.f_struct_simple = {'asw':2,'y':0}
+			x.f_struct_simple['asw'] = 8
 			
 	def test_dt_bad_value(self):
 		with self.assertRaises(TypeError) as cm:
-			x.f_struct_simple.x='asde'
+			x.f_struct_simple['x']='asde'
 	
 	#def test_c_int_alloc_1d_non_alloc(self):
 		#y=x.sub_alloc_int_1d_cleanup()
@@ -909,33 +909,22 @@ class TestStringMethods(unittest.TestCase):
 			y=x.sub_int_opt()
 		output=out.getvalue().strip()
 		self.assertEqual(output,'200')
-	
-	def test_dt_copy(self):
-		x.f_struct_simple.x=99
-		x.f_struct_simple.y=99
-		y=x.f_struct_simple
-		self.assertEqual(y,{'x':99,'y':99})
-		y=x.f_struct_simple.get(copy=True)
-		self.assertEqual(y,{'x':99,'y':99})
-		y=x.f_struct_simple.get(copy=False)
-		self.assertEqual(y.x,99)
-		self.assertEqual(y.y,99)
-		
 		
 	def test_second_mod(self):
-		x.f_struct_simple2.x=99
+		x.f_struct_simple2['x']=99
 		y=x.sub_use_mod()
 		self.assertEqual(x.test2_x,1)
-		self.assertEqual(x.f_struct_simple2.x,5)
+		self.assertEqual(x.f_struct_simple2['x'],5)
 		self.assertEqual(x.f_struct_simple2['y'],6)
 	
 	def test_nested_dts(self):
-		x.g_struct.a_int=10
-		self.assertEqual(x.g_struct.a_int,10)
-		x.g_struct={'a_int':10,'f_struct':{'a_int':3}}
-		self.assertEqual(x.g_struct.f_struct.a_int,3)
-		x.g_struct.f_struct.a_int=8
-		self.assertEqual(x.g_struct.f_struct.a_int,8)
+		x.g_struct['a_int']=10
+		self.assertEqual(x.g_struct['a_int'],10)
+		x.g_struct['f_struct']['a_int']=3
+		self.assertEqual(x.g_struct['f_struct']['a_int'],3)
+		self.assertEqual(x.g_struct['a_int'],10)
+		x.g_struct['f_struct']['a_int']=8
+		self.assertEqual(x.g_struct['f_struct']['a_int'],8)
 		y=x.func_check_nested_dt()
 		self.assertEqual(y,True)
 	

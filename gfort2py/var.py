@@ -318,7 +318,7 @@ class fVar(object):
         return self.value.__len__()
         
     def __hash__(self):
-        raise NotImplemented
+        return NotImplemented
         
     def _set_default_value(self,default,**kwargs):
         if 'value' in kwargs:

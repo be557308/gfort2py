@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: GPL-2.0+
 
-import collections
+# import collections
 import numpy as np
 import ctypes
+import six
 
 from . import var 
 from . import utils as u
@@ -15,11 +16,9 @@ _dictDTDefs = {}
 
 
 class fDT(var.fVar):
-
-    _elem = collections.namedtuple('_elem',('offset','ctype','fvar'))
     
     def __init__(self,name=None,base_addr=-1,keys=[],key_sizes=[],key_types=[],
-				key_fvars=[],dt_name=None,
+				key_fvars=[],dt_name=None,key_extras=[],
                 pointer=False,param=False,mangled_name=None,**kwargs):
 					
         self._name = name
@@ -43,8 +42,8 @@ class fDT(var.fVar):
             key_sizes = dtdf['key_sizes']
             key_fvars = dtdf['key_fvars']
             key_types = dtdf['key_types']
+            key_extras = dtdf['key_extras']
 			
-        
         if len(key_sizes)==0:
             key_sizes = [ctypes.sizeof(k) for k in key_types]
 
@@ -53,12 +52,15 @@ class fDT(var.fVar):
         offsets = np.cumsum(key_sizes)
         
         self._value={}
-        for i,j,k,l in zip(keys,offsets,key_types,key_fvars):
-            self._value[i]=self._elem(j,k,l)
+        for i,j,k,l,m in zip(keys,offsets,key_types,key_fvars,key_extras):
+            self._value[i]={'offset':j,'ctype':k,'fvar':l,'extra':m}
         
     def __getitem__(self,key):
         x = self._get_ref(key)
-        return x.value
+        if hasattr(x,'__ctypes_from_outparam__'):
+            return x.value
+        else:
+            return x
         
     def __setitem__(self,key,value):
         x = self._get_ref(key)
@@ -66,28 +68,23 @@ class fDT(var.fVar):
 
     def _get_ref(self,key):
         if key not in self._value:
-            raise KeyError("Key "+str(key)+" doesn't exist")
+            raise KeyError("""Key '"""+str(key)+"""' doesn't exist""")
             
         if self._base_addr < 0:
             raise ValueError("Must set base_addr")
-        
-        x_addr = self._base_addr + self._value[key].offset
-        x = self._value[key].ctype.from_address(int(x_addr))
-        return x
-        
-    def __getattr__(self,key):
-        if key in self.__dict__:
-            return self.__dict__[key]
             
-        return self.__getitem__(key)
+        x_addr = self._base_addr + self._value[key]['offset']
         
-    def __setattr__(self,key,value):
+        # If element is a dt we create it here
+        if isinstance(self._value[key]['extra'],six.string_types):
+           # x_addr = x_addr + ctypes.sizeof(ctypes.c_void_p)
+            self._value[key]['extra'] = fDT(dt_name=self._value[key]['extra'],base_addr=x_addr)
         
-        if '_value' in self.__dict__:
-            self.__setitem__(key,value)
+        # Return DT if element is one
+        if type(self._value[key]['extra']) is type(self):
+            return self._value[key]['extra']
         else:
-            self.__dict__[key] = value   
-        
+            return self._value[key]['ctype'].from_address(int(x_addr))
         
     def __delitem__(self,key):
         pass
@@ -118,6 +115,8 @@ class fDT(var.fVar):
         
     def keys(self):
         return self._value.keys()
+        
+        
 
 #from __future__ import print_function
 #import ctypes

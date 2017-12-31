@@ -133,14 +133,13 @@ class fFort(object):
 				
 	def _init_dt_def(self):
 		for key, value in self._dt_defs.items():
-
 			dt._dictDTDefs[key] = {}
-
 			args = value['dt_def']['arg']
 			dt._dictDTDefs[key]['keys'] = [i['name'] for i in args]
 			dt._dictDTDefs[key]['key_types'] = [getattr(ctypes,i['var']['ctype']) for i in args]
 			dt._dictDTDefs[key]['key_sizes'] = [int(i['var']['bytes']) for i in args]
 			dt._dictDTDefs[key]['key_fvars'] = [_map2gf(i) for i in args]
+			dt._dictDTDefs[key]['key_extras'] = [i['var']['dt']['name'] if 'dt' in i['var'] else None for i in args]
 			
 				
 	def __dir__(self):
