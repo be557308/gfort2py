@@ -1,15 +1,14 @@
 language: python
 dist: trusty
-python:
-  - "2.7"
-  - "3.3"
-  - "3.4"
-  - "3.5"
-  - "3.6"
-  - "3.7-dev" # 3.7 development branch
 matrix:
-# cython is currently broken with these
-  allow_failures:
+  python:
+    - "2.7"
+    - "3.3"
+    - "3.4"
+    - "3.5"
+    - "3.6"
+    - "3.7-dev" 
+   allow_failures:
     - python: "3.7-dev" 
   include:
      addons:
@@ -41,7 +40,15 @@ matrix:
             sources:
                - ubuntu-toolchain-r-test
             packages:
-               - gfortran-4
+               - gfortran-4.8
+               - gzip
+  include:
+     addons:
+         apt:
+            sources:
+               - ubuntu-toolchain-r-test
+            packages:
+               - gfortran-4.9
                - gzip
 
 install: 
