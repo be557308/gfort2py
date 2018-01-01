@@ -2,7 +2,7 @@
 FC = gfortran
 
 ifdef TRAVIS
-	FC = gfortran-6
+	FC = $TRAVIS_GFORTRAN
 endif
 
 all:

@@ -1,70 +1,69 @@
 language: python
 dist: trusty
 matrix:
-  python:
-    - "2.7"
-    - "3.3"
-    - "3.4"
-    - "3.5"
-    - "3.6"
-    - "3.7-dev" 
-   allow_failures:
-    - python: "3.7-dev" 
-  include:
-     addons:
-         apt:
-            sources:
-               - ubuntu-toolchain-r-test
-            packages:
-               - gfortran-6
-               - gzip
-  include:
-     addons:
-         apt:
-            sources:
-               - ubuntu-toolchain-r-test
-            packages:
-               - gfortran-7
-               - gzip
-  include:
-     addons:
-         apt:
-            sources:
-               - ubuntu-toolchain-r-test
-            packages:
-               - gfortran-5
-               - gzip
-  include:
-     addons:
-         apt:
-            sources:
-               - ubuntu-toolchain-r-test
-            packages:
-               - gfortran-4.8
-               - gzip
-  include:
-     addons:
-         apt:
-            sources:
-               - ubuntu-toolchain-r-test
-            packages:
-               - gfortran-4.9
-               - gzip
-
+    python:
+        - "2.7"
+        - "3.3"
+        - "3.4"
+        - "3.5"
+        - "3.6"
+        - "3.7-dev" 
+    allow_failures:
+        - python: "3.7-dev" 
+    include:
+        addons:
+            apt:
+                sources:
+                    - ubuntu-toolchain-r-test
+                packages:
+                    - gfortran-6
+                    - gzip
+        env:
+            - TRAVIS_GFORTRAN=gfortran-6
+    include:
+        addons:
+            apt:
+                sources:
+                    - ubuntu-toolchain-r-test
+                packages:
+                    - gfortran-5
+                    - gzip
+        env:
+            - TRAVIS_GFORTRAN=gfortran-5
+    include:
+        addons:
+            apt:
+                sources:
+                    - ubuntu-toolchain-r-test
+                packages:
+                    - gfortran-7
+                    - gzip
+        env:
+            - TRAVIS_GFORTRAN=gfortran-7
+    include:
+        addons:
+            apt:
+                sources:
+                    - ubuntu-toolchain-r-test
+                packages:
+                    - gfortran-4.9
+                    - gzip
+        env:
+            - TRAVIS_GFORTRAN=gfortran-4.9
 install: 
-  - pip install -r requirements.txt
-  - pip install -e .[dev]
-  - python setup.py install
+    - pip install -r requirements.txt
+    - pip install -e .[dev]
+    - python setup.py install
 # command to run tests
 script: 
-  - coverage run --source=gfort2py setup.py test
+    - coverage run --source=gfort2py setup.py test
 sudo: required
 env: 
-  TRAVIS=1
+    TRAVIS=1
 after_success:
     coveralls
 cache: 
-  directories:
-    - $HOME/.cache/pip
-before_cache:
-  - rm -f $HOME/.cache/pip/log/debug.log
+    directories:
+        - $HOME/.cache/pip
+    before_cache:
+        - rm -f $HOME/.cache/pip/log/debug.log
