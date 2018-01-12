@@ -7,32 +7,30 @@ python:
   - "3.5"
   - "3.6"
   - "3.7-dev" 
-  allow_failures:
-    - python "3.7-dev"
 matrix:
   include:
-    - addons:
+    addons:
         apt:
-          sources: ['ubuntu-toolchain-r-test']
-          packages: ['gfortran-6', 'gzip']
+          - sources: ubuntu-toolchain-r-test
+          - packages: gfortran-6
       env: 
           - TRAVIS_GFORTRAN=gfortran-6
-    - addons:
+    addons:
         apt:
-          sources: ['ubuntu-toolchain-r-test']
-          packages: ['gfortran-7', 'gzip']
+          - sources: ubuntu-toolchain-r-test
+          - packages: gfortran-7
       env: 
           - TRAVIS_GFORTRAN=gfortran-7
-    - addons:
+    addons:
         apt:
-          sources: ['ubuntu-toolchain-r-test']
-          packages: ['gfortran-5', 'gzip']
+          - sources: ubuntu-toolchain-r-test
+          - packages: gfortran-5
       env: 
           - TRAVIS_GFORTRAN=gfortran-5
-    - addons:
+    addons:
         apt:
-          sources: ['ubuntu-toolchain-r-test']
-          packages: ['gfortran-4.9', 'gzip']
+          - sources: ubuntu-toolchain-r-test
+          - packages: gfortran-4.9
       env: 
           - TRAVIS_GFORTRAN=gfortran-4.9
 install: 
