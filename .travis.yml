@@ -18,8 +18,8 @@ matrix:
           sources: ['ubuntu-toolchain-r-test']
           packages: ['gfortran-6', 'gzip']
       env: 
-	TRAVIS_GFORTRAN=gfortran-6
-	TRAVIS=1	
+          - TRAVIS_GFORTRAN=gfortran-6
+          - TRAVIS=1
     - os: linux
       compiler: gcc
       addons:
@@ -27,8 +27,8 @@ matrix:
           sources: ['ubuntu-toolchain-r-test']
           packages: ['gfortran-7', 'gzip']
       env: 
-	TRAVIS_GFORTRAN=gfortran-7
-	TRAVIS=1
+          - TRAVIS_GFORTRAN=gfortran-7
+          - TRAVIS=1
     - os: linux
       compiler: gcc
       addons:
@@ -36,8 +36,8 @@ matrix:
           sources: ['ubuntu-toolchain-r-test']
           packages: ['gfortran-5', 'gzip']
       env: 
-	TRAVIS_GFORTRAN=gfortran-5
-	TRAVIS=1
+          - TRAVIS_GFORTRAN=gfortran-5
+          - TRAVIS=1
     - os: linux
       compiler: gcc
       addons:
@@ -45,8 +45,8 @@ matrix:
           sources: ['ubuntu-toolchain-r-test']
           packages: ['gfortran-4.9', 'gzip']
       env: 
-	TRAVIS_GFORTRAN=gfortran-4.9
-	TRAVIS=1
+          - TRAVIS_GFORTRAN=gfortran-4.9
+          - TRAVIS=1
 install: 
     - pip install -r requirements.txt
     - pip install -e .[dev]
