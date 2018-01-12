@@ -55,9 +55,6 @@ script:
 sudo: required
 after_success:
     coveralls
-env:
-  global:
-    - TRAVIS=1
 cache:
   apt: true
   pip: true
