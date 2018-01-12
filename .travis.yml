@@ -9,28 +9,40 @@ python:
   - "3.7-dev" 
 matrix:
   include:
-    addons:
+    - os: linux
+    - addons:
         apt:
-          - sources: ubuntu-toolchain-r-test
-          - packages: gfortran-6
+          sources: 
+            - ubuntu-toolchain-r-test
+          packages: 
+            - gfortran-6
       env: 
           - TRAVIS_GFORTRAN=gfortran-6
-    addons:
+    - os: linux
+    - addons:
         apt:
-          - sources: ubuntu-toolchain-r-test
-          - packages: gfortran-7
-      env: 
-          - TRAVIS_GFORTRAN=gfortran-7
-    addons:
-        apt:
-          - sources: ubuntu-toolchain-r-test
-          - packages: gfortran-5
+          sources: 
+            - ubuntu-toolchain-r-test
+          packages: 
+            - gfortran-5
       env: 
           - TRAVIS_GFORTRAN=gfortran-5
-    addons:
+    - os: linux
+    - addons:
         apt:
-          - sources: ubuntu-toolchain-r-test
-          - packages: gfortran-4.9
+          sources: 
+            - ubuntu-toolchain-r-test
+          packages: 
+            - gfortran-7
+      env: 
+          - TRAVIS_GFORTRAN=gfortran-7
+    - os: linux
+    - addons:
+        apt:
+          sources: 
+            - ubuntu-toolchain-r-test
+          packages: 
+            - gfortran-4.9
       env: 
           - TRAVIS_GFORTRAN=gfortran-4.9
 install: 
@@ -46,3 +58,9 @@ after_success:
 env:
   global
     - TRAVIS=1
+cache:
+  apt: true
+  pip: true
+  directories:
+    - $HOME/.cache/pip
+    - $HOME/.local  
