@@ -9,44 +9,44 @@ python:
     - "3.7-dev" 
 allow_failures:
     - python "3.7-dev"
-matrix: 
-    include:
-        addons:
-            apt:
-                sources:
-                    - ubuntu-toolchain-r-test
-                packages:
-                    - gfortran-6
-                    - gzip
-            env:
-                - TRAVIS_GFORTRAN=gfortran-6
-        addons:
-            apt:
-                sources:
-                    - ubuntu-toolchain-r-test
-                packages:
-                    - gfortran-5
-                    - gzip
-            env:
-                - TRAVIS_GFORTRAN=gfortran-5
-        addons:
-            apt:
-                sources:
-                    - ubuntu-toolchain-r-test
-                packages:
-                    - gfortran-7
-                    - gzip
-            env:
-                - TRAVIS_GFORTRAN=gfortran-7
-        addons:
-            apt:
-                sources:
-                    - ubuntu-toolchain-r-test
-                packages:
-                    - gfortran-4.9
-                    - gzip
-            env:
-                - TRAVIS_GFORTRAN=gfortran-4.9
+matrix:
+  include:
+    - os: linux
+      compiler: gcc
+      addons:
+        apt:
+          sources: ['ubuntu-toolchain-r-test']
+          packages: ['gfortran-6', 'gzip']
+      env: 
+	TRAVIS_GFORTRAN=gfortran-6
+	TRAVIS=1	
+    - os: linux
+      compiler: gcc
+      addons:
+        apt:
+          sources: ['ubuntu-toolchain-r-test']
+          packages: ['gfortran-7', 'gzip']
+      env: 
+	TRAVIS_GFORTRAN=gfortran-7
+	TRAVIS=1
+    - os: linux
+      compiler: gcc
+      addons:
+        apt:
+          sources: ['ubuntu-toolchain-r-test']
+          packages: ['gfortran-5', 'gzip']
+      env: 
+	TRAVIS_GFORTRAN=gfortran-5
+	TRAVIS=1
+    - os: linux
+      compiler: gcc
+      addons:
+        apt:
+          sources: ['ubuntu-toolchain-r-test']
+          packages: ['gfortran-4.9', 'gzip']
+      env: 
+	TRAVIS_GFORTRAN=gfortran-4.9
+	TRAVIS=1
 install: 
     - pip install -r requirements.txt
     - pip install -e .[dev]
@@ -55,8 +55,6 @@ install:
 script: 
     - coverage run --source=gfort2py setup.py test
 sudo: required
-env: 
-    TRAVIS=1
 after_success:
     coveralls
 
