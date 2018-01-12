@@ -10,7 +10,7 @@ python:
 matrix:
   include:
     - os: linux
-    - addons:
+      addons:
         apt:
           sources: 
             - ubuntu-toolchain-r-test
@@ -19,7 +19,7 @@ matrix:
       env: 
           - TRAVIS_GFORTRAN=gfortran-6
     - os: linux
-    - addons:
+      addons:
         apt:
           sources: 
             - ubuntu-toolchain-r-test
@@ -28,7 +28,7 @@ matrix:
       env: 
           - TRAVIS_GFORTRAN=gfortran-5
     - os: linux
-    - addons:
+      addons:
         apt:
           sources: 
             - ubuntu-toolchain-r-test
@@ -37,7 +37,7 @@ matrix:
       env: 
           - TRAVIS_GFORTRAN=gfortran-7
     - os: linux
-    - addons:
+      addons:
         apt:
           sources: 
             - ubuntu-toolchain-r-test
@@ -56,7 +56,7 @@ sudo: required
 after_success:
     coveralls
 env:
-  global
+  global:
     - TRAVIS=1
 cache:
   apt: true
