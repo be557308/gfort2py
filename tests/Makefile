@@ -1,7 +1,7 @@
 
 FC = gfortran
 
-ifdef TRAVIS
+ifdef $(TRAVIS)
 	FC = $(TRAVIS_GFORTRAN)
 endif
 
