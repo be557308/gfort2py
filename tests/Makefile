@@ -1,8 +1,9 @@
 
-FC = gfortran
 
-ifdef $(TRAVIS)
+ifdef TRAVIS
 	FC = $(TRAVIS_GFORTRAN)
+else
+	FC = gfortran
 endif
 
 all:
