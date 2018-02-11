@@ -46,7 +46,7 @@ class fArray(var.fVar):
     _BT_ASSUMED = _BT_VOID + 1
     
     _BT_TYPESPEC = {_BT_UNKNOWN:'v',_BT_INTEGER:'i',_BT_LOGICAL:'b',
-                    _BT_REAL:'g',_BT_COMPLEX:'c',_BT_DERIVED:'v',
+                    _BT_REAL:'f',_BT_COMPLEX:'c',_BT_DERIVED:'v',
                     _BT_CHARACTER:'v',_BT_CLASS:'v',_BT_PROCEDURE:'v',
                     _BT_HOLLERITH:'v',_BT_VOID:'v',_BT_ASSUMED:'v'}
                     
@@ -65,7 +65,7 @@ class fArray(var.fVar):
     
     def __init__(self,pointer=True,kind=-1,name=None,param=False,
                     base_addr=-1,cname=None,pytype=None,ctype=None,
-                    shape=None,ndim=None,explicit=True,mangled_name=None,
+                    shape=None,ndim=None,explicit=False,mangled_name=None,
                     **kwargs):
     
         if shape is None and ndim is None:
@@ -79,7 +79,9 @@ class fArray(var.fVar):
         self._pyalloc = False
         self._name = None
         self._value = None
-        self._explicit = explicit
+        self._explicit = False
+        if kwargs['atype']=='explicit' or explicit:
+            self._explicit = True
         self._mangled_name = mangled_name
                             
         if shape is not None:
@@ -95,6 +97,7 @@ class fArray(var.fVar):
                 raise ValueError("ndim must be > 0")
             self._ndim = ndim
             self._falloc = True
+            self._shape=tuple([0 for i in range(self._ndim)])
 
         if base_addr > 0:
             self._base_addr = base_addr
@@ -102,7 +105,7 @@ class fArray(var.fVar):
             self._base_addr = -1
     
         if self._explicit and self._shape is None:
-            raise ValueError("Explicit arrays must have thier shape set")
+            raise ValueError("Explicit arrays must have their shape set")
     
     
         self._pointer = pointer
@@ -114,13 +117,12 @@ class fArray(var.fVar):
         self._ctype = ctypes.c_void_p
         self._ctype_p = ctypes.c_void_p
                 
-        #python type of indivdual element
+        #python type of individual element
         self._pytype_s = getattr(__builtin__,pytype)
         #ctype of a single element
         self._ctype_s = getattr(ctypes,ctype)
         
         self._init_farray()
-        
         if self.name is not None:
             self._up_ref()
     
@@ -129,8 +131,8 @@ class fArray(var.fVar):
         self._farray = dt.fDT(keys=self._create_keys(self._ndim),
                               key_types=self._create_types(self._ndim),
                               base_addr=-1)
-        
-        self._farray.__array_interface__ = {
+                              
+        self.__array_interface__ = {
                 'shape': None,
                 'typestr': None,
                 'data': None,
@@ -140,16 +142,13 @@ class fArray(var.fVar):
         
     
     @property
-    def value(self):
-        self._up_ref()
-        
+    def value(self):        
         if self._base_addr < 0:
-            raise ValueError("Must set either the name or base_addr of array")
-
+            self._up_ref()
+            
         if self._explicit:
             strides = tuple(int(np.product(self._shape[0:i])) for i,v in enumerate(self._shape))
-            self._farray.__array_interface__['data'] = (self._base_addr,False)
-            
+            self.__array_interface__['data'] = (self._base_addr,False)
         else:            
             if self._ref.value is None:
                 raise ArrayNotAllocated("Array hasn't been allocated yet")
@@ -157,19 +156,20 @@ class fArray(var.fVar):
             self._ndim, BT, size = self._split_dtype(self._farray['dtype'])
             self._shape = self._get_shape()
             strides = self._get_strides()
-            self._farray.__array_interface__['data'] = (self._ref.value,False)
+            self.__array_interface__['data'] = (self._farray['array_addr'],False)
             
-        self._farray.__array_interface__['shape'] = self._shape
-        self._farray.__array_interface__['typestr'] = self._get_type_str()
+        self.__array_interface__['shape'] = self._shape
+        self.__array_interface__['typestr'] = self._get_type_str()
         if self._ndim > 1:
-            self._farray.__array_interface__['strides'] = tuple(i*size for i in strides)
+            self.__array_interface__['strides'] = tuple(i*size for i in strides)
         else:
-            self._farray.__array_interface__['strides'] = None
+            self.__array_interface__['strides'] = None
         
-        self._value = np.array(self._farray,copy=False)
-        fnumpy.remove_ownership(self._value)
+        self._value = np.array(self,copy=False)
         self._falloc = True
         self._pyalloc = False
+        
+        
         return self._value
        
     @value.setter
@@ -180,30 +180,30 @@ class fArray(var.fVar):
         
         # Type check
         if  not value.__array_interface__['typestr'] == self._get_type_str():
-            raise ValueError("Array is wrong type, got "+ str(value.__array_interface__['typestr'])+
-                            " expected "+str(self._get_type_str()))
-        
+            value = value.astype(self._get_type_str())
+            # raise ValueError("Array is wrong type, got "+ str(value.__array_interface__['typestr'])+
+                            # " expected "+str(self._get_type_str()))
         
         self._value = value
+        
         fnumpy.remove_ownership(self._value)
+        
         self._shape = value.shape
         self._ndim = value.ndim
         self._pyalloc = True
         
-        #self._up_ref()
-        self._farray.__array_interface__ = self._value.__array_interface__
-        # This misses the first 8 bytes
-        self._base_addr = self._farray.__array_interface__['data'][0]
-        # This sets only the first 8 bytes
-        #ctypes.memmove(self._base_addr,self._value.ctypes.data, ctypes.sizeof(ctypes.c_void_p))
-       
-       
+        self.__array_interface__ = self._value.__array_interface__
+
+        self._farray['array_addr'] = self.__array_interface__['data'][0]
+
         if not self._explicit:
             self._farray['dtype'] = self._create_dtype(ndim=self._ndim, 
                                                    itemsize=ctypes.sizeof(self._ctype_s),
                                                    ftype=str(self._pytype_s)
                                                    )
             self._set_bounds()
+            
+        
         
     def _get_type_str(self):
         if self._explicit:
@@ -331,9 +331,9 @@ class fArray(var.fVar):
             except ValueError:
                 raise NotInLib 
                 
-        
         self._farray._base_addr = self._base_addr
         self._farray['array_addr'] = self._ref.value
+        
         
 #####################################################################
 

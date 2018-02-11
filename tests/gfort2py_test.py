@@ -501,7 +501,7 @@ class TestStringMethods(unittest.TestCase):
 	def test_c_int_alloc_1d(self):
 		y=x.sub_alloc_int_1d_cleanup()
 		y=x.sub_alloc_int_1d_arrs()
-		v=np.zeros([5])
+		v=np.zeros([5],dtype='int32')
 		v[:]=1
 		np_test.assert_array_equal(x.c_int_alloc_1d,v)
 		y=x.sub_alloc_int_1d_cleanup()
@@ -509,7 +509,7 @@ class TestStringMethods(unittest.TestCase):
 	def test_c_int_alloc_2d(self):
 		y=x.sub_alloc_int_1d_cleanup()
 		y=x.sub_alloc_int_1d_arrs()
-		v=np.zeros([5,5])
+		v=np.zeros([5,5],dtype='int32')
 		v[:]=1
 		np_test.assert_array_equal(x.c_int_alloc_2d,v)
 		y=x.sub_alloc_int_1d_cleanup()
@@ -517,7 +517,7 @@ class TestStringMethods(unittest.TestCase):
 	def test_c_int_alloc_3d(self):
 		y=x.sub_alloc_int_1d_cleanup()
 		y=x.sub_alloc_int_1d_arrs()
-		v=np.zeros([5,5,5])
+		v=np.zeros([5,5,5],dtype='int32')
 		v[:]=1
 		np_test.assert_array_equal(x.c_int_alloc_3d,v)
 		y=x.sub_alloc_int_1d_cleanup()
@@ -525,7 +525,7 @@ class TestStringMethods(unittest.TestCase):
 	def test_c_int_alloc_4d(self):
 		y=x.sub_alloc_int_1d_cleanup()
 		y=x.sub_alloc_int_1d_arrs()
-		v=np.zeros([5,5,5,5])
+		v=np.zeros([5,5,5,5],dtype='int32')
 		v[:]=1
 		np_test.assert_array_equal(x.c_int_alloc_4d,v)
 		y=x.sub_alloc_int_1d_cleanup()
@@ -533,7 +533,7 @@ class TestStringMethods(unittest.TestCase):
 	def test_c_int_alloc_5d(self):
 		y=x.sub_alloc_int_1d_cleanup()
 		y=x.sub_alloc_int_1d_arrs()
-		v=np.zeros([5,5,5,5,5])
+		v=np.zeros([5,5,5,5,5],dtype='int32')
 		v[:]=1
 		np_test.assert_array_equal(x.c_int_alloc_5d,v)
 		y=x.sub_alloc_int_1d_cleanup()
@@ -542,7 +542,7 @@ class TestStringMethods(unittest.TestCase):
 	def test_c_int_alloc_1d_set(self):
 		y=x.sub_alloc_int_1d_cleanup()
 		y=x.sub_alloc_int_1d_arrs()
-		v=np.zeros([5])
+		v=np.zeros([5],dtype='int32')
 		v[:]=5
 		x.c_int_alloc_1d = v
 		np_test.assert_array_equal(x.c_int_alloc_1d,v)
@@ -551,7 +551,7 @@ class TestStringMethods(unittest.TestCase):
 	def test_c_int_alloc_2d_set(self):
 		y=x.sub_alloc_int_1d_cleanup()
 		y=x.sub_alloc_int_1d_arrs()
-		v=np.zeros([5,5])
+		v=np.zeros([5,5],dtype='int32')
 		v[:]=5
 		x.c_int_alloc_2d = v
 		np_test.assert_array_equal(x.c_int_alloc_2d,v)
@@ -560,7 +560,7 @@ class TestStringMethods(unittest.TestCase):
 	def test_c_int_alloc_3d_set(self):
 		y=x.sub_alloc_int_1d_cleanup()
 		y=x.sub_alloc_int_1d_arrs()
-		v=np.zeros([5,5,5])
+		v=np.zeros([5,5,5],dtype='int32')
 		v[:]=5
 		x.c_int_alloc_3d = v
 		np_test.assert_array_equal(x.c_int_alloc_3d,v)
@@ -569,7 +569,7 @@ class TestStringMethods(unittest.TestCase):
 	def test_c_int_alloc_4d_set(self):
 		y=x.sub_alloc_int_1d_cleanup()
 		y=x.sub_alloc_int_1d_arrs()
-		v=np.zeros([5,5,5,5])
+		v=np.zeros([5,5,5,5],dtype='int32')
 		v[:]=5
 		x.c_int_alloc_4d = v
 		np_test.assert_array_equal(x.c_int_alloc_4d,v)
@@ -578,7 +578,7 @@ class TestStringMethods(unittest.TestCase):
 	def test_c_int_alloc_5d_set(self):
 		y=x.sub_alloc_int_1d_cleanup()
 		y=x.sub_alloc_int_1d_arrs()
-		v=np.zeros([5,5,5,5,5])
+		v=np.zeros([5,5,5,5,5],dtype='int32')
 		v[:]=5
 		x.c_int_alloc_5d = v
 		np_test.assert_array_equal(x.c_int_alloc_5d,v)
@@ -588,7 +588,7 @@ class TestStringMethods(unittest.TestCase):
 		# Can have issues exiting when using large (>255) arrays
 		y=x.sub_alloc_int_1d_cleanup()
 		y=x.sub_alloc_int_1d_arrs()
-		v=np.zeros([256])
+		v=np.zeros([256],dtype='int32')
 		v[:]=5
 		x.c_int_alloc_1d = v
 		np_test.assert_array_equal(x.c_int_alloc_1d,v)

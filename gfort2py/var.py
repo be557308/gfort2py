@@ -128,7 +128,7 @@ class fVar(object):
         return ctypes.sizeof(self._ctype)
         
     
-    # self.value should allways be a python type so we overload and let
+    # self.value should always be a python type so we overload and let
     # the python types __X__ functions act    
     
     def __add__(self,x):

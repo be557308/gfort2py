@@ -43,7 +43,7 @@ class fDT(var.fVar):
             key_fvars = dtdf['key_fvars']
             key_types = dtdf['key_types']
             key_extras = dtdf['key_extras']
-			
+    
         if len(key_sizes)==0:
             key_sizes = [ctypes.sizeof(k) for k in key_types]
 
@@ -52,9 +52,9 @@ class fDT(var.fVar):
         offsets = np.cumsum(key_sizes)
         
         self._value={}
-        for i,j,k,l,m in zip(keys,offsets,key_types,key_fvars,key_extras):
+        for i,j,k,l,m in six.moves.zip_longest(keys,offsets,key_types,key_fvars,key_extras):
             self._value[i]={'offset':j,'ctype':k,'fvar':l,'extra':m}
-        
+                    
     def __getitem__(self,key):
         x = self._get_ref(key)
         if hasattr(x,'__ctypes_from_outparam__'):
