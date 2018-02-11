@@ -6,6 +6,8 @@ python:
   - "3.5"
   - "3.6"
   - "3.7-dev" 
+allow_failures:
+  - "3.7-dev" 
 addons:
     apt:
       sources: 
