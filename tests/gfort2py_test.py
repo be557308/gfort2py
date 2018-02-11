@@ -906,7 +906,7 @@ class TestStringMethods(unittest.TestCase):
 		output=out.getvalue().strip()
 		self.assertEqual(output,'100')
 		with captured_output() as (out,err):
-			y=x.sub_int_opt()
+			y=x.sub_int_opt(None)
 		output=out.getvalue().strip()
 		self.assertEqual(output,'200')
 		
