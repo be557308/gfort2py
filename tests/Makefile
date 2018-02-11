@@ -1,6 +1,6 @@
 
 
-ifdef TRAVIS_GFORTRANS
+ifdef TRAVIS_GFORTRAN
 	FC = $(TRAVIS_GFORTRAN)
 else
 	FC = gfortran
