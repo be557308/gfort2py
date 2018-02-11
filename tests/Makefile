@@ -1,7 +1,7 @@
 
 
-ifdef TRAVIS_GFORTRAN
-	FC = $(TRAVIS_GFORTRAN)
+ifdef GFORTRAN_TRAVIS
+	FC = $(GFORTRAN_TRAVIS)
 else
 	FC = gfortran
 endif

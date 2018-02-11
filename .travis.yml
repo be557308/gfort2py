@@ -13,12 +13,11 @@ addons:
       packages: 
           - gfortran-5
       env: 
-          - TRAVIS_GFORTRAN=gfortran-5
+          - GFORTRAN_TRAVIS="gfortran-5"
 install: 
     - pip install -r requirements.txt
     - pip install -e .[dev]
     - python setup.py install
-# command to run tests
 script: 
     - coverage run --source=gfort2py setup.py test
 sudo: required
