@@ -299,14 +299,14 @@ class TestStringMethods(unittest.TestCase):
 	def test_func_int_in(self):
 		v=5
 		y=x.func_int_in(v)
-		self.assertEqual(int(y),2*v)
+		self.assertEqual(int(y['func_int_in']),2*v)
 		
 	def test_func_int_in_multi(self):
 		v=5
 		w=3
 		u=4
 		y=x.func_int_in_multi(v,w,u)
-		self.assertEqual(y,v+w+u)
+		self.assertEqual(y['func_int_in_multi'],v+w+u)
 		
 	def test_sub_int_in(self):
 		v=5
@@ -317,15 +317,15 @@ class TestStringMethods(unittest.TestCase):
 
 	def test_func_int_no_args(self):
 		y=x.func_int_no_args()
-		self.assertEqual(y,2)
+		self.assertEqual(y['func_int_no_args'],2)
 		
 	def test_func_real_no_args(self):
 		y=x.func_real_no_args()
-		self.assertEqual(y,3.0)
+		self.assertEqual(y['func_real_no_args'],3.0)
 
 	def test_func_real_dp_no_args(self):
 		y=x.func_real_dp_no_args()
-		self.assertEqual(y,4.0)
+		self.assertEqual(y['func_real_dp_no_args'],4.0)
 		
 	def test_sub_str_in_explicit(self):
 		v=b'1324567980'
@@ -770,9 +770,9 @@ class TestStringMethods(unittest.TestCase):
 		
 	def test_func_return_res(self):
 		y=x.func_return_res(2)
-		self.assertEqual(y,True)
+		self.assertEqual(y['func_return_res'],True)
 		y=x.func_return_res(10)
-		self.assertEqual(y,False)		
+		self.assertEqual(y['func_return_res'],False)		
 	
 
 	def test_func_assumed_shape_arr_1d(self):
@@ -926,7 +926,7 @@ class TestStringMethods(unittest.TestCase):
 		x.g_struct['f_struct']['a_int']=8
 		self.assertEqual(x.g_struct['f_struct']['a_int'],8)
 		y=x.func_check_nested_dt()
-		self.assertEqual(y,True)
+		self.assertEqual(y['func_check_nested_dt'],True)
 	
 
 if __name__ == '__main__':

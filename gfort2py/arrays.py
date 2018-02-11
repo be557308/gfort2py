@@ -214,7 +214,7 @@ class fArray(var.fVar):
             if self._ref.value is None:
                 raise ArrayNotAllocated("Array hasn't been allocated yet")
             _, BT, size = self._split_dtype(self._farray['dtype'])
-        return self._BT_to_typestr(BT)+str(size)
+        return str(self._BT_to_typestr(BT)+str(size))
         
         
     def _get_bounds(self):

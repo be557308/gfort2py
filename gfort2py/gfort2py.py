@@ -23,7 +23,7 @@ WARN_ON_SKIP=False
 #https://gcc.gnu.org/onlinedocs/gcc-6.1.0/gfortran/Argument-passing-conventions.html
 
 _map2ctype = {
-            # Cat a objects ctype+pytype for the key (logical are not C_bool but c_int so must distingush from normal int's)
+            # Cat a objects ctype+pytype for the key (logical are not C_bool but c_int so must distinguish from normal int's)
             'c_intint':var.fInt,
             'c_int32int':var.fInt,
             'c_int64int':var.fLongInt,
@@ -50,6 +50,9 @@ def _map2gf(x):
 		else: # single variables
 			v = x['var']
 			r = _map2ctype[v['ctype']+v['pytype']]
+	elif 'sub' in x:
+		if not x['sub']:
+			r = _map2ctype[x['ret']['ctype']+x['ret']['pytype']]()
 	return r
 
 
@@ -125,8 +128,9 @@ class fFort(object):
 		name = [i['name'] for i in v]
 		opt = [i['var']['optional'] for i in v]
 		intent = [i['var']['intent'] for i in v]
+		ar = _map2gf(y['proc'])
 		return func.fFunc(name=y['name'],mangled_name=y['mangled_name'],
-							arg_return=_map2gf(y['proc']),
+							arg_return=ar,
 							arg_names=name,arg_fvar=fv,
 							arg_opts=opt,arg_intents=intent)
 				

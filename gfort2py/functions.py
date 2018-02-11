@@ -118,10 +118,8 @@ class fFunc(object):
                 # Should proberbly do something with pointers for arrays
                 args_out[name].value = value.contents.value
         
-        
-        if self._arg_return is not None:
-            args_out[self.name] = self._arg_return
-            args_out[self.name].value = res
+        if res is not None and self._arg_return is not None:
+            args_out[self.name] = self._arg_return._pytype(res)
 
         return args_out
 
