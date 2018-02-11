@@ -1,5 +1,4 @@
 language: python
-dist: trusty
 python:
   - "2.7"
   - "3.3"
@@ -7,44 +6,14 @@ python:
   - "3.5"
   - "3.6"
   - "3.7-dev" 
-matrix:
-  include:
-    - os: linux
-      addons:
-        apt:
-          sources: 
-            - ubuntu-toolchain-r-test
-          packages: 
-            - gfortran-6
-      env: 
-          - TRAVIS_GFORTRAN=gfortran-6
-    - os: linux
-      addons:
-        apt:
-          sources: 
-            - ubuntu-toolchain-r-test
-          packages: 
-            - gfortran-5
+addons:
+    apt:
+      sources: 
+          - ubuntu-toolchain-r-test
+      packages: 
+          - gfortran-5
       env: 
           - TRAVIS_GFORTRAN=gfortran-5
-    - os: linux
-      addons:
-        apt:
-          sources: 
-            - ubuntu-toolchain-r-test
-          packages: 
-            - gfortran-7
-      env: 
-          - TRAVIS_GFORTRAN=gfortran-7
-    - os: linux
-      addons:
-        apt:
-          sources: 
-            - ubuntu-toolchain-r-test
-          packages: 
-            - gfortran-4.9
-      env: 
-          - TRAVIS_GFORTRAN=gfortran-4.9
 install: 
     - pip install -r requirements.txt
     - pip install -e .[dev]
